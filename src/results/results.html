@@ -11,67 +11,74 @@
       <header class="results-header">
         <div>
           <p class="eyebrow">X Follow Cleaner</p>
-          <h1>关注账户结果</h1>
+          <h1 data-i18n="resultsTitle">关注账户结果</h1>
         </div>
         <div class="header-actions">
-          <button id="exportCsv" type="button">导出 CSV</button>
-          <button id="exportJson" type="button">导出 JSON</button>
-          <button id="refreshResults" type="button">刷新</button>
+          <button id="exportCsv" type="button" data-i18n="exportCsv">导出 CSV</button>
+          <button id="exportJson" type="button" data-i18n="exportJson">导出 JSON</button>
+          <button id="refreshResults" type="button" data-i18n="refresh">刷新</button>
         </div>
       </header>
 
       <section class="summary-grid" aria-label="账户统计">
         <article>
-          <span>全部账户</span>
+          <span data-i18n="allAccounts">全部账户</span>
           <strong id="summaryTotal">0</strong>
         </article>
         <article>
-          <span>超过 30 天未活跃</span>
+          <span data-i18n="inactiveTab">已确认未活跃</span>
           <strong id="summaryInactive">0</strong>
         </article>
         <article>
-          <span>30 天内活跃</span>
+          <span data-i18n="reviewTab">待复核</span>
+          <strong id="summaryReview">0</strong>
+        </article>
+        <article>
+          <span data-i18n="activeTab">近期活跃</span>
           <strong id="summaryActive">0</strong>
         </article>
         <article>
-          <span>无法判断</span>
+          <span data-i18n="unknownTab">无法判断</span>
           <strong id="summaryUnknown">0</strong>
         </article>
         <article>
-          <span>白名单</span>
+          <span data-i18n="whitelistTab">白名单</span>
           <strong id="summaryWhitelisted">0</strong>
         </article>
         <article>
-          <span>已处理</span>
+          <span data-i18n="processedTab">已处理</span>
           <strong id="summaryProcessed">0</strong>
         </article>
       </section>
 
       <section class="toolbar" aria-label="结果筛选">
         <label>
-          <span>搜索 username</span>
-          <input id="searchInput" type="search" placeholder="例如 openai">
+          <span data-i18n="searchUsername">搜索 username</span>
+          <input id="searchInput" type="search" placeholder="例如 openai" data-i18n-placeholder="searchPlaceholder">
         </label>
       </section>
 
       <section class="batch-panel" aria-label="低频自动检查">
         <div>
-          <h2>低频自动检查</h2>
+          <h2 data-i18n="batchCheck">低频自动检查</h2>
           <p id="batchStatus">默认关闭。可在设置页开启后，从当前结果中低频逐个打开主页检查。</p>
         </div>
         <div class="batch-actions">
-          <button id="startBatchCheck" type="button">开始低频检查</button>
-          <button id="pauseBatchCheck" type="button" disabled>暂停</button>
+          <button id="startBatchCheck" type="button" data-i18n="startBatch">开始低频检查</button>
+          <button id="recheckInactive" type="button" data-i18n="recheckInactive">复核未活跃</button>
+          <button id="recheckUnknown" type="button" data-i18n="recheckUnknown">重查无法判断</button>
+          <button id="pauseBatchCheck" type="button" disabled data-i18n="pause">暂停</button>
         </div>
       </section>
 
       <nav class="tabs" aria-label="结果标签">
-        <button class="tab-button active" type="button" data-filter="all">全部账户</button>
-        <button class="tab-button" type="button" data-filter="inactive">超过 30 天未活跃</button>
-        <button class="tab-button" type="button" data-filter="active">30 天内活跃</button>
-        <button class="tab-button" type="button" data-filter="unknown">无法判断</button>
-        <button class="tab-button" type="button" data-filter="whitelisted">白名单</button>
-        <button class="tab-button" type="button" data-filter="processed">已处理</button>
+        <button class="tab-button active" type="button" data-filter="all" data-i18n="allAccounts">全部账户</button>
+        <button class="tab-button" type="button" data-filter="inactive" data-i18n="inactiveTab">已确认未活跃</button>
+        <button class="tab-button" type="button" data-filter="review" data-i18n="reviewTab">待复核</button>
+        <button class="tab-button" type="button" data-filter="active" data-i18n="activeTab">近期活跃</button>
+        <button class="tab-button" type="button" data-filter="unknown" data-i18n="unknownTab">无法判断</button>
+        <button class="tab-button" type="button" data-filter="whitelisted" data-i18n="whitelistTab">白名单</button>
+        <button class="tab-button" type="button" data-filter="processed" data-i18n="processedTab">已处理</button>
       </nav>
 
       <section class="account-list" id="accountList" aria-live="polite"></section>
@@ -87,17 +94,34 @@
             <p class="username"></p>
             <dl class="account-meta">
               <div>
-                <dt>最近发帖时间</dt>
+                <dt data-i18n="lastPostAt">最近发帖时间</dt>
                 <dd class="last-post"></dd>
               </div>
               <div>
-                <dt>未活跃天数</dt>
+                <dt data-i18n="inactiveDays">未活跃天数</dt>
                 <dd class="inactive-days"></dd>
+              </div>
+              <div>
+                <dt data-i18n="confirmation">二次确认</dt>
+                <dd class="confirmation-count"></dd>
+              </div>
+              <div>
+                <dt data-i18n="checkedAt">检查时间</dt>
+                <dd class="checked-at"></dd>
+              </div>
+              <div>
+                <dt data-i18n="rawTime">原始时间</dt>
+                <dd class="source-text"></dd>
+              </div>
+              <div>
+                <dt data-i18n="evidence">读取依据</dt>
+                <dd class="evidence-link"></dd>
               </div>
             </dl>
           </div>
           <div class="row-actions">
-            <button type="button" data-action="open">打开主页</button>
+            <button type="button" data-action="open" data-i18n="openProfile">打开主页</button>
+            <button type="button" data-action="recheck" data-i18n="recheck">重新检查</button>
             <button type="button" data-action="processed">标记已处理</button>
             <button type="button" data-action="whitelist">加入白名单</button>
           </div>

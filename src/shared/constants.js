@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
 
 export const AccountStatus = {
   PENDING: "pending",
+  REVIEW: "review",
   ACTIVE: "active",
   INACTIVE: "inactive",
   UNKNOWN: "unknown",
@@ -16,6 +17,7 @@ export const AccountStatus = {
 };
 
 export const DEFAULT_SETTINGS = {
+  appLanguage: "zh",
   inactiveThresholdDays: 30,
   hideWhitelisted: true,
   showUnknown: true,
@@ -36,6 +38,7 @@ export const DEFAULT_TASK_STATE = {
   totalAccounts: 0,
   pendingAccounts: 0,
   inactiveAccounts: 0,
+  reviewAccounts: 0,
   unknownAccounts: 0,
   activeAccounts: 0,
   lastUpdatedAt: "",

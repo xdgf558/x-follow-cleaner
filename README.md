@@ -15,6 +15,7 @@ X Follow Cleaner 是一个本地运行的 Chrome 插件，用于辅助你检查 
 7. 不批量点击。
 8. 不自动滚动 X 页面。
 9. 不使用 X 官方 API。
+10. 支持中文和 English 界面切换。
 
 ## 下载打包版安装方法
 
@@ -82,12 +83,13 @@ X Follow Cleaner 是一个本地运行的 Chrome 插件，用于辅助你检查 
 
 点击 Popup 中的“打开设置”可以调整：
 
-1. 未活跃判断天数：30 / 60 / 90 / 180。
-2. 是否隐藏白名单账户。
-3. 是否显示无法判断账户。
-4. 默认排序。
-5. X 页面语言提示。
-6. 保守验证节奏。
+1. 插件界面语言：中文 / English。
+2. 未活跃判断天数：30 / 60 / 90 / 180。
+3. 是否隐藏白名单账户。
+4. 是否显示无法判断账户。
+5. 默认排序。
+6. X 页面语言提示。
+7. 保守验证节奏。
 
 设置只保存在本地，不会上传。
 
@@ -129,6 +131,14 @@ X Follow Cleaner 是一个本地运行的 Chrome 插件，用于辅助你检查 
 2. 插件会跳过置顶帖，避免把长期置顶的旧内容当成最近活跃时间。
 3. 自动检查会等待目标主页切换稳定后再保存结果，减少读到上一个账号页面残留内容的概率。
 4. 如果当前可见内容里没有稳定找到该账号自己的公开帖子时间，会标记为无法判断，而不是强行保存旧时间。
+5. 第一次读到超过阈值的账号会标记为“待复核未活跃”；第二次重新检查仍然超过阈值后，才标记为“已确认未活跃”。
+6. 结果页会显示读取依据，包括原始时间文本、依据帖子链接和检查时间。
+
+重新检查：
+
+1. 每个账户行都有“重新检查”按钮，可单独复核。
+2. 开启低频自动检查后，结果页可批量“复核未活跃”和“重查无法判断”。
+3. 批量复核仍使用低频间隔和每日上限，不会自动取关或关注。
 
 ## 数据导出
 
@@ -137,7 +147,7 @@ X Follow Cleaner 是一个本地运行的 Chrome 插件，用于辅助你检查 
 CSV 字段：
 
 ```csv
-username,displayName,profileUrl,lastPostAt,inactiveDays,status,processed,whitelisted,collectedAt,lastCheckedAt,manualNote
+username,displayName,profileUrl,lastPostAt,inactiveDays,inactiveConfirmationCount,status,lastSourceText,lastStatusUrl,processed,whitelisted,collectedAt,lastCheckedAt,manualNote
 ```
 
 JSON 包含本地账户数组、设置和导出时间，不包含 Cookie、Token、密码、私信或浏览器会话信息。

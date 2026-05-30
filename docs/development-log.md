@@ -1,5 +1,60 @@
 # Development Log
 
+## v1.2 完成记录：复核、依据和双语切换
+
+完成时间：2026-05-31
+
+阶段目标：降低误判后的复核成本，增加结果可追溯性，并增加中文和 English 界面切换。
+
+完成内容：
+1. 结果页每个账户新增“重新检查”按钮。
+2. 开启低频自动检查后，结果页支持批量“复核未活跃”和“重查无法判断”。
+3. 结果页显示读取依据：原始时间文本、依据帖子链接、检查时间。
+4. 未活跃判断改为二次确认：第一次超过阈值标记“待复核未活跃”，第二次仍超过阈值才标记“已确认未活跃”。
+5. CSV 导出新增 `inactiveConfirmationCount`、`lastSourceText`、`lastStatusUrl` 字段。
+6. 设置页新增插件界面语言：中文 / English。
+7. Popup、结果页、设置页主要文案支持中文和 English 切换。
+8. README、stage-plan、known-issues 和 test-checklist 已更新。
+9. 版本号更新到 `0.3.0`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/stage-plan.md`
+5. `docs/known-issues.md`
+6. `docs/test-checklist.md`
+7. `docs/development-log.md`
+8. `src/shared/constants.js`
+9. `src/shared/csvUtils.js`
+10. `src/shared/i18n.js`
+11. `src/shared/statusUtils.js`
+12. `src/shared/storage.js`
+13. `src/content/followingScanner.js`
+14. `src/options/options.html`
+15. `src/options/options.js`
+16. `src/popup/popup.html`
+17. `src/popup/popup.js`
+18. `src/results/results.html`
+19. `src/results/results.css`
+20. `src/results/results.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. `npm run package` 已运行并生成 `dist/x-follow-cleaner-v0.3.0.zip`。
+3. `unzip -l dist/x-follow-cleaner-v0.3.0.zip` 已确认 zip 只包含插件运行文件。
+
+未完成内容：
+1. 真实 Chrome 中的中英文切换、重新检查和二次确认流程需要人工验证。
+
+发现问题：
+1. X 页面自身返回的异常文案仍可能不是插件当前界面语言。
+
+下一阶段注意事项：
+1. 继续保持复核低频，不要把复核按钮改成高速后台扫描。
+
+是否允许进入下一阶段：是
+
 ## 修复记录：降低主页活跃度误判
 
 完成时间：2026-05-30

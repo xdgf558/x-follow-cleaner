@@ -9,13 +9,14 @@ import {
   upsertAccounts
 } from "../shared/storage.js";
 import { AccountStatus } from "../shared/constants.js";
-import { diffDays } from "../shared/dateUtils.js";
 import { getProfileUsernameFromUrl, isFollowingUrl, isProfileUrl, isXUrl } from "../shared/domUtils.js";
-import { getEffectiveAccount } from "../shared/statusUtils.js";
+import { applyTranslations, formatMessage, getText } from "../shared/i18n.js";
+import { buildProfileActivityPatch, getEffectiveAccount } from "../shared/statusUtils.js";
 
 const elements = {
   totalAccounts: document.querySelector("#totalAccounts"),
   inactiveAccounts: document.querySelector("#inactiveAccounts"),
+  reviewAccounts: document.querySelector("#reviewAccounts"),
   activeAccounts: document.querySelector("#activeAccounts"),
   unknownAccounts: document.querySelector("#unknownAccounts"),
   whitelistedAccounts: document.querySelector("#whitelistedAccounts"),
@@ -29,6 +30,7 @@ const elements = {
 };
 
 let scanCooldownTimerId = null;
+let currentText = getText("zh");
 
 function setStatus(message) {
   elements.statusMessage.textContent = message;
@@ -53,31 +55,34 @@ function renderScanCooldown(settings, taskState) {
   const remainingSeconds = getScanCooldownRemainingSeconds(settings, taskState);
   if (remainingSeconds > 0) {
     elements.scanCurrentPage.disabled = true;
-    elements.scanCurrentPage.textContent = `扫描当前页面（${remainingSeconds}s）`;
+    elements.scanCurrentPage.textContent = formatMessage(currentText.scanCurrentPageWithSeconds, { seconds: remainingSeconds });
     scanCooldownTimerId = window.setTimeout(() => {
       refreshPopup().catch((error) => {
-        setStatus(`Popup 刷新失败：${error.message}`);
+        setStatus(formatMessage(currentText.loadFailed, { message: error.message }));
       });
     }, 1000);
     return;
   }
 
   elements.scanCurrentPage.disabled = false;
-  elements.scanCurrentPage.textContent = "扫描当前页面";
+  elements.scanCurrentPage.textContent = currentText.scanCurrentPage;
 }
 
 async function refreshPopup() {
   const [accounts, taskState, settings] = await Promise.all([getAccounts(), getTaskState(), getSettings()]);
+  currentText = getText(settings);
+  applyTranslations(document, currentText, settings.appLanguage);
   const summary = summarizeAccounts(accounts.map((account) => getEffectiveAccount(account, settings)));
 
   elements.totalAccounts.textContent = String(summary.total);
   elements.inactiveAccounts.textContent = String(summary.inactive);
+  elements.reviewAccounts.textContent = String(summary.review);
   elements.activeAccounts.textContent = String(summary.active);
   elements.unknownAccounts.textContent = String(summary.unknown);
   elements.whitelistedAccounts.textContent = String(summary.whitelisted);
   elements.processedAccounts.textContent = String(summary.processed);
 
-  setStatus(taskState.message || "等待用户手动操作。");
+  setStatus(taskState.message || currentText.waiting);
   renderScanCooldown(settings, taskState);
 }
 
@@ -149,8 +154,8 @@ async function injectProfileParser(tabId, expectedUsername = "") {
 
 async function scanCurrentPage() {
   elements.scanCurrentPage.disabled = true;
-  elements.scanCurrentPage.textContent = "正在扫描...";
-  setStatus("正在读取当前页面已经展示的关注账户...");
+  elements.scanCurrentPage.textContent = currentText.scanning;
+  setStatus(currentText.readingFollowing);
   let scanAttemptAt = "";
 
   try {
@@ -159,14 +164,14 @@ async function scanCurrentPage() {
     const taskState = await getTaskState();
 
     if (!tab?.id || !isXTab(tab)) {
-      const message = "请先打开 x.com 或 twitter.com 的 Following 页面。";
+      const message = currentText.needFollowingPage;
       await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", message });
       setStatus(message);
       return;
     }
 
     if (!isFollowingTab(tab)) {
-      const message = "当前页面不是 Following 页面，请打开 https://x.com/{username}/following 后再扫描。";
+      const message = formatMessage(currentText.notFollowingPage, { username: "{username}" });
       await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", message });
       setStatus(message);
       return;
@@ -174,7 +179,7 @@ async function scanCurrentPage() {
 
     const remainingSeconds = getScanCooldownRemainingSeconds(settings, taskState);
     if (remainingSeconds > 0) {
-      const message = `保守验证节奏已开启，请等待 ${remainingSeconds} 秒后再扫描当前页面。`;
+      const message = formatMessage(currentText.cooldownMessage, { seconds: remainingSeconds });
       await saveTaskState({
         currentStage: "safety-cooldown",
         lastAction: "scanVisibleFollowing",
@@ -188,14 +193,14 @@ async function scanCurrentPage() {
     scanAttemptAt = new Date().toISOString();
     const scanResult = await injectFollowingScanner(tab.id);
     if (!scanResult?.ok) {
-      const message = scanResult?.message || "没有读取到账户，请确认页面已经加载 Following 列表。";
+      const message = scanResult?.message || currentText.scanEmpty;
       await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", lastScanAttemptAt: scanAttemptAt, message });
       setStatus(message);
       return;
     }
 
     const allAccounts = await upsertAccounts(scanResult.accounts);
-    const message = `本次读取 ${scanResult.accounts.length} 个账户，本地共保存 ${allAccounts.length} 个账户。`;
+    const message = formatMessage(currentText.scanSuccess, { count: scanResult.accounts.length, total: allAccounts.length });
     await saveTaskState({
       currentStage: "stage-2",
       lastAction: "scanVisibleFollowing",
@@ -205,7 +210,7 @@ async function scanCurrentPage() {
     });
     await refreshPopup();
   } catch (error) {
-    const message = `扫描失败：${error.message}`;
+    const message = formatMessage(currentText.scanFailed, { message: error.message });
     await saveTaskState({
       currentStage: "stage-2",
       lastAction: "scanVisibleFollowing",
@@ -220,20 +225,20 @@ async function scanCurrentPage() {
 
 async function readProfileActivity() {
   elements.readProfileActivity.disabled = true;
-  setStatus("正在读取当前主页可见的最近公开发帖时间...");
+  setStatus(currentText.readProfileWorking);
 
   try {
     const tab = await getActiveTab();
 
     if (!tab?.id || !isXTab(tab)) {
-      const message = "请先手动打开 x.com 或 twitter.com 上的账户主页。";
+      const message = currentText.needProfilePage;
       await saveTaskState({ currentStage: "stage-4", lastAction: "readProfileActivity", message });
       setStatus(message);
       return;
     }
 
     if (!isProfileTab(tab)) {
-      const message = "当前页面不是账户主页，请从结果页手动打开某个账户主页后再读取。";
+      const message = currentText.notProfilePage;
       await saveTaskState({ currentStage: "stage-4", lastAction: "readProfileActivity", message });
       setStatus(message);
       return;
@@ -244,48 +249,34 @@ async function readProfileActivity() {
     const username = result?.username || expectedUsername;
     const settings = await getSettings();
     const checkedAt = new Date().toISOString();
-
-    let patch = {
+    const accounts = await getAccounts();
+    const existingAccount = accounts.find((account) => account.username === username) || {
       username,
-      profileUrl: `https://x.com/${username}`,
-      lastCheckedAt: checkedAt,
-      errorMessage: result?.message || ""
+      profileUrl: `https://x.com/${username}`
     };
 
-    if (result?.ok && result.lastPostAt) {
-      const inactiveDays = Number.isFinite(result.inactiveDays)
-        ? result.inactiveDays
-        : diffDays(result.lastPostAt);
-      patch = {
-        ...patch,
-        lastPostAt: result.lastPostAt,
-        inactiveDays,
-        status: inactiveDays > settings.inactiveThresholdDays
-          ? AccountStatus.INACTIVE
-          : AccountStatus.ACTIVE,
-        errorMessage: ""
-      };
-    } else if (result?.ok) {
-      patch = {
-        ...patch,
-        lastPostAt: "",
-        inactiveDays: null,
-        status: AccountStatus.UNKNOWN
-      };
-    } else {
-      patch = {
-        ...patch,
-        lastPostAt: "",
-        inactiveDays: null,
-        status: AccountStatus.ERROR
-      };
-    }
+    const patch = {
+      ...buildProfileActivityPatch(existingAccount, result, settings, checkedAt),
+      username,
+      profileUrl: existingAccount.profileUrl || `https://x.com/${username}`
+    };
 
     await updateAccount(username, patch);
 
-    const message = result?.ok && result.lastPostAt
-      ? `已读取 @${username}，未活跃 ${patch.inactiveDays} 天，状态为 ${patch.status === AccountStatus.INACTIVE ? "疑似未活跃" : "30 天内活跃"}。`
-      : `@${username} ${patch.status === AccountStatus.UNKNOWN ? "无法判断" : "读取失败"}：${patch.errorMessage || "当前可见内容中没有找到公开帖子时间。"}`;
+    let message = "";
+    if (result?.ok && result.lastPostAt && patch.status === AccountStatus.ACTIVE) {
+      message = formatMessage(currentText.profileReadActive, { username, days: patch.inactiveDays });
+    } else if (result?.ok && result.lastPostAt && patch.status === AccountStatus.REVIEW) {
+      message = formatMessage(currentText.profileReadReview, { username, days: patch.inactiveDays });
+    } else if (result?.ok && result.lastPostAt) {
+      message = formatMessage(currentText.profileReadInactive, { username, days: patch.inactiveDays });
+    } else {
+      message = formatMessage(currentText.profileReadFailed, {
+        username,
+        status: patch.status === AccountStatus.UNKNOWN ? currentText.resultUnknown : currentText.resultError,
+        message: patch.errorMessage || currentText.noEvidence
+      });
+    }
 
     await saveTaskState({
       currentStage: "stage-4",
@@ -294,7 +285,7 @@ async function readProfileActivity() {
     });
     await refreshPopup();
   } catch (error) {
-    const message = `读取主页失败：${error.message}`;
+    const message = formatMessage(currentText.readFailed, { message: error.message });
     await saveTaskState({ currentStage: "stage-4", lastAction: "readProfileActivity", message });
     setStatus(message);
   } finally {
@@ -303,10 +294,11 @@ async function readProfileActivity() {
 }
 
 async function clearLocalData() {
-  const confirmed = confirm("确认清空本地保存的账户数据？此操作不会影响 X 账户。");
+  const confirmed = confirm(currentText.clearConfirm);
   if (!confirmed) return;
 
   await clearAccounts();
+  await saveTaskState({ currentStage: "idle", lastAction: "clearLocalData", message: currentText.cleared });
   await refreshPopup();
 }
 
@@ -327,5 +319,5 @@ elements.openOptions.addEventListener("click", () => chrome.runtime.openOptionsP
 elements.clearLocalData.addEventListener("click", clearLocalData);
 
 refreshPopup().catch((error) => {
-  setStatus(`Popup 初始化失败：${error.message}`);
+  setStatus(formatMessage(currentText.loadFailed, { message: error.message }));
 });

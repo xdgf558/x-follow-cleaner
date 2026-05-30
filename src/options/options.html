@@ -10,107 +10,119 @@
     <main class="settings-shell">
       <header class="settings-header">
         <p class="eyebrow">X Follow Cleaner</p>
-        <h1>设置</h1>
+        <h1 data-i18n="settings">设置</h1>
       </header>
 
       <form id="settingsForm" class="settings-form">
-        <section class="settings-section" aria-labelledby="rulesTitle">
-          <h2 id="rulesTitle">判断规则</h2>
+        <section class="settings-section" aria-labelledby="languageTitle">
+          <h2 id="languageTitle" data-i18n="displaySettings">显示语言</h2>
 
           <label class="field">
-            <span>未活跃判断天数</span>
+            <span data-i18n="appLanguage">插件界面语言</span>
+            <select id="appLanguage" name="appLanguage">
+              <option value="zh" data-i18n="languageChinese">中文</option>
+              <option value="en" data-i18n="languageEnglish">English</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-section" aria-labelledby="rulesTitle">
+          <h2 id="rulesTitle" data-i18n="ruleSettings">判断规则</h2>
+
+          <label class="field">
+            <span data-i18n="inactiveThresholdDays">未活跃判断天数</span>
             <select id="inactiveThresholdDays" name="inactiveThresholdDays">
-              <option value="30">30 天</option>
-              <option value="60">60 天</option>
-              <option value="90">90 天</option>
-              <option value="180">180 天</option>
+              <option value="30" data-i18n="days30">30 天</option>
+              <option value="60" data-i18n="days60">60 天</option>
+              <option value="90" data-i18n="days90">90 天</option>
+              <option value="180" data-i18n="days180">180 天</option>
             </select>
           </label>
 
           <label class="field checkbox-field">
             <input id="hideWhitelisted" name="hideWhitelisted" type="checkbox">
-            <span>隐藏白名单账户</span>
+            <span data-i18n="hideWhitelisted">隐藏白名单账户</span>
           </label>
 
           <label class="field checkbox-field">
             <input id="showUnknown" name="showUnknown" type="checkbox">
-            <span>显示无法判断账户</span>
+            <span data-i18n="showUnknown">显示无法判断账户</span>
           </label>
 
           <label class="field">
-            <span>默认排序</span>
+            <span data-i18n="defaultSort">默认排序</span>
             <select id="defaultSort" name="defaultSort">
-              <option value="inactiveDaysDesc">未活跃天数从高到低</option>
-              <option value="lastCheckedAtDesc">最近检查时间从新到旧</option>
+              <option value="inactiveDaysDesc" data-i18n="sortInactiveDays">未活跃天数从高到低</option>
+              <option value="lastCheckedAtDesc" data-i18n="sortLastChecked">最近检查时间从新到旧</option>
             </select>
           </label>
 
           <label class="field">
-            <span>X 页面语言提示</span>
+            <span data-i18n="xLanguageHint">X 页面语言提示</span>
             <select id="languageHint" name="languageHint">
-              <option value="en">英文</option>
-              <option value="other">其他</option>
+              <option value="en" data-i18n="english">英文</option>
+              <option value="other" data-i18n="other">其他</option>
             </select>
           </label>
         </section>
 
         <section class="settings-section" aria-labelledby="safetyTitle">
-          <h2 id="safetyTitle">安全节奏</h2>
+          <h2 id="safetyTitle" data-i18n="safetyPace">安全节奏</h2>
 
           <label class="field checkbox-field">
             <input id="enableConservativeMode" name="enableConservativeMode" type="checkbox">
-            <span>保守验证节奏</span>
+            <span data-i18n="conservativeMode">保守验证节奏</span>
           </label>
 
           <label class="field">
-            <span>扫描按钮等待时间</span>
+            <span data-i18n="scanCooldown">扫描按钮等待时间</span>
             <select id="conservativeScanCooldownSeconds" name="conservativeScanCooldownSeconds">
-              <option value="30">30 秒</option>
-              <option value="45">45 秒</option>
-              <option value="60">60 秒</option>
+              <option value="30" data-i18n="seconds30">30 秒</option>
+              <option value="45" data-i18n="seconds45">45 秒</option>
+              <option value="60" data-i18n="seconds60">60 秒</option>
             </select>
           </label>
         </section>
 
         <section class="settings-section warning-section" aria-label="安全提示">
-          <p>本插件只用于辅助你查看自己关注账户的公开活跃情况。</p>
-          <p>插件不会自动取关任何账户。</p>
-          <p>开启保守验证节奏后，两次扫描当前页面之间必须等待至少 30 秒。</p>
-          <p>建议你手动打开主页确认后再决定是否取关。</p>
-          <p>出现验证、访问限制、页面异常时，请停止使用插件。</p>
+          <p data-i18n="safetyTip1">本插件只用于辅助你查看自己关注账户的公开活跃情况。</p>
+          <p data-i18n="safetyTip2">插件不会自动取关任何账户。</p>
+          <p data-i18n="safetyTip3">开启保守验证节奏后，两次扫描当前页面之间必须等待至少 30 秒。</p>
+          <p data-i18n="safetyTip4">建议你手动打开主页确认后再决定是否取关。</p>
+          <p data-i18n="safetyTip5">出现验证、访问限制、页面异常时，请停止使用插件。</p>
         </section>
 
         <section class="settings-section warning-section" aria-labelledby="batchTitle">
-          <h2 id="batchTitle">低频自动检查</h2>
+          <h2 id="batchTitle" data-i18n="batchCheck">低频自动检查</h2>
 
           <label class="field checkbox-field">
             <input id="enableExperimentalBatchCheck" name="enableExperimentalBatchCheck" type="checkbox">
-            <span>开启低频自动检查</span>
+            <span data-i18n="enableBatch">开启低频自动检查</span>
           </label>
 
           <label class="field">
-            <span>每批最多检查</span>
+            <span data-i18n="batchSize">每批最多检查</span>
             <select id="experimentalBatchSize" name="experimentalBatchSize">
-              <option value="5">5 个账户</option>
-              <option value="10">10 个账户</option>
-              <option value="20">20 个账户</option>
+              <option value="5" data-i18n="accounts5">5 个账户</option>
+              <option value="10" data-i18n="accounts10">10 个账户</option>
+              <option value="20" data-i18n="accounts20">20 个账户</option>
             </select>
           </label>
 
           <label class="field">
-            <span>账户间隔</span>
+            <span data-i18n="accountDelay">账户间隔</span>
             <select id="experimentalDelayPreset" name="experimentalDelayPreset">
-              <option value="15-30">15 到 30 秒</option>
-              <option value="30-60">30 到 60 秒</option>
-              <option value="60-120">60 到 120 秒</option>
+              <option value="15-30" data-i18n="delay1530">15 到 30 秒</option>
+              <option value="30-60" data-i18n="delay3060">30 到 60 秒</option>
+              <option value="60-120" data-i18n="delay60120">60 到 120 秒</option>
             </select>
           </label>
 
-          <p>默认关闭。开启后结果页才会显示“开始低频检查”。运行时会逐个打开主页，出现验证或访问限制会立即停止。每天最多检查 100 个账户。</p>
+          <p data-i18n="batchHelp">默认关闭。开启后结果页才会显示“开始低频检查”。运行时会逐个打开主页，出现验证或访问限制会立即停止。每天最多检查 100 个账户。</p>
         </section>
 
         <div class="form-actions">
-          <button id="saveSettings" type="submit">保存设置</button>
+          <button id="saveSettings" type="submit" data-i18n="saveSettings">保存设置</button>
           <p id="saveStatus" role="status"></p>
         </div>
       </form>

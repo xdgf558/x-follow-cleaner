@@ -1,12 +1,21 @@
 import { AccountStatus } from "./constants.js";
 import { diffDays } from "./dateUtils.js";
 
+function normalizeLanguage(language) {
+  return language === "en" ? "en" : "zh";
+}
+
+export function getInactiveConfirmationCount(account) {
+  return Math.max(0, Number(account?.inactiveConfirmationCount || 0));
+}
+
 export function getAccountStatus(account, settings = {}) {
   if (account?.lastPostAt) {
     const inactiveDays = diffDays(account.lastPostAt);
     if (inactiveDays !== null) {
       const threshold = Number(settings.inactiveThresholdDays || 30);
-      return inactiveDays > threshold ? AccountStatus.INACTIVE : AccountStatus.ACTIVE;
+      if (inactiveDays <= threshold) return AccountStatus.ACTIVE;
+      return getInactiveConfirmationCount(account) >= 2 ? AccountStatus.INACTIVE : AccountStatus.REVIEW;
     }
   }
 
@@ -39,23 +48,38 @@ export function getDisplayStatus(account, settings = {}) {
   return getBaseStatus(account, settings);
 }
 
-export function getStatusLabel(status) {
+export function getStatusLabel(status, language = "zh") {
   const labels = {
-    [AccountStatus.PENDING]: "待检查",
-    [AccountStatus.ACTIVE]: "30 天内活跃",
-    [AccountStatus.INACTIVE]: "超过 30 天未活跃",
-    [AccountStatus.UNKNOWN]: "无法判断",
-    [AccountStatus.ERROR]: "解析失败",
-    [AccountStatus.PROCESSED]: "已处理",
-    [AccountStatus.WHITELISTED]: "白名单"
+    zh: {
+      [AccountStatus.PENDING]: "待检查",
+      [AccountStatus.REVIEW]: "待复核未活跃",
+      [AccountStatus.ACTIVE]: "近期活跃",
+      [AccountStatus.INACTIVE]: "已确认未活跃",
+      [AccountStatus.UNKNOWN]: "无法判断",
+      [AccountStatus.ERROR]: "解析失败",
+      [AccountStatus.PROCESSED]: "已处理",
+      [AccountStatus.WHITELISTED]: "白名单"
+    },
+    en: {
+      [AccountStatus.PENDING]: "Pending",
+      [AccountStatus.REVIEW]: "Needs review",
+      [AccountStatus.ACTIVE]: "Recently active",
+      [AccountStatus.INACTIVE]: "Confirmed inactive",
+      [AccountStatus.UNKNOWN]: "Unknown",
+      [AccountStatus.ERROR]: "Parse error",
+      [AccountStatus.PROCESSED]: "Processed",
+      [AccountStatus.WHITELISTED]: "Whitelist"
+    }
   };
 
-  return labels[status] || "待检查";
+  const languageKey = normalizeLanguage(language);
+  return labels[languageKey][status] || labels[languageKey][AccountStatus.PENDING];
 }
 
 export function getStatusClass(status) {
   const classes = {
     [AccountStatus.PENDING]: "status-pending",
+    [AccountStatus.REVIEW]: "status-review",
     [AccountStatus.ACTIVE]: "status-active",
     [AccountStatus.INACTIVE]: "status-inactive",
     [AccountStatus.UNKNOWN]: "status-unknown",
@@ -72,6 +96,7 @@ export function accountMatchesFilter(account, filter, settings = {}) {
 
   if (filter === "all") return true;
   if (filter === "inactive") return baseStatus === AccountStatus.INACTIVE;
+  if (filter === "review") return baseStatus === AccountStatus.REVIEW;
   if (filter === "active") return baseStatus === AccountStatus.ACTIVE;
   if (filter === "unknown") {
     return baseStatus === AccountStatus.UNKNOWN || baseStatus === AccountStatus.ERROR || baseStatus === AccountStatus.PENDING;
@@ -80,4 +105,69 @@ export function accountMatchesFilter(account, filter, settings = {}) {
   if (filter === "processed") return Boolean(account?.processed);
 
   return true;
+}
+
+export function buildProfileActivityPatch(account = {}, result = {}, settings = {}, checkedAt = new Date().toISOString()) {
+  const username = String(account.username || result.username || "").replace(/^@/, "").trim().toLowerCase();
+  const patch = {
+    profileUrl: account.profileUrl || `https://x.com/${username}`,
+    lastCheckedAt: checkedAt,
+    lastSourceText: result?.sourceText || "",
+    lastStatusUrl: result?.statusUrl || "",
+    errorMessage: result?.message || ""
+  };
+
+  if (result?.ok && result.lastPostAt) {
+    const inactiveDays = Number.isFinite(result.inactiveDays)
+      ? result.inactiveDays
+      : diffDays(result.lastPostAt);
+    const threshold = Number(settings.inactiveThresholdDays || 30);
+
+    if (Number.isFinite(inactiveDays) && inactiveDays > threshold) {
+      const nextCount = Math.min(2, getInactiveConfirmationCount(account) + 1);
+      return {
+        ...patch,
+        lastPostAt: result.lastPostAt,
+        inactiveDays,
+        status: nextCount >= 2 ? AccountStatus.INACTIVE : AccountStatus.REVIEW,
+        inactiveConfirmationCount: nextCount,
+        inactiveFirstSeenAt: account.inactiveFirstSeenAt || checkedAt,
+        inactiveLastConfirmedAt: checkedAt,
+        errorMessage: ""
+      };
+    }
+
+    return {
+      ...patch,
+      lastPostAt: result.lastPostAt,
+      inactiveDays,
+      status: AccountStatus.ACTIVE,
+      inactiveConfirmationCount: 0,
+      inactiveFirstSeenAt: "",
+      inactiveLastConfirmedAt: "",
+      errorMessage: ""
+    };
+  }
+
+  if (result?.ok) {
+    return {
+      ...patch,
+      lastPostAt: "",
+      inactiveDays: null,
+      status: AccountStatus.UNKNOWN,
+      inactiveConfirmationCount: 0,
+      inactiveFirstSeenAt: "",
+      inactiveLastConfirmedAt: ""
+    };
+  }
+
+  return {
+    ...patch,
+    lastPostAt: "",
+    inactiveDays: null,
+    status: AccountStatus.ERROR,
+    inactiveConfirmationCount: 0,
+    inactiveFirstSeenAt: "",
+    inactiveLastConfirmedAt: ""
+  };
 }

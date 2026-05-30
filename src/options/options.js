@@ -1,7 +1,9 @@
 import { getSettings, saveSettings } from "../shared/storage.js";
+import { applyTranslations, formatMessage, getText } from "../shared/i18n.js";
 
 const elements = {
   form: document.querySelector("#settingsForm"),
+  appLanguage: document.querySelector("#appLanguage"),
   inactiveThresholdDays: document.querySelector("#inactiveThresholdDays"),
   hideWhitelisted: document.querySelector("#hideWhitelisted"),
   showUnknown: document.querySelector("#showUnknown"),
@@ -15,13 +17,22 @@ const elements = {
   saveStatus: document.querySelector("#saveStatus")
 };
 
+let currentText = getText("zh");
+
 function setStatus(message) {
   elements.saveStatus.textContent = message;
+}
+
+function applyLanguage(settings) {
+  currentText = getText(settings);
+  applyTranslations(document, currentText, settings.appLanguage);
 }
 
 async function loadSettings() {
   const settings = await getSettings();
 
+  applyLanguage(settings);
+  elements.appLanguage.value = settings.appLanguage || "zh";
   elements.inactiveThresholdDays.value = String(settings.inactiveThresholdDays);
   elements.hideWhitelisted.checked = Boolean(settings.hideWhitelisted);
   elements.showUnknown.checked = Boolean(settings.showUnknown);
@@ -39,6 +50,7 @@ async function handleSubmit(event) {
 
   const settings = {
     ...await getSettings(),
+    appLanguage: elements.appLanguage.value,
     inactiveThresholdDays: Number(elements.inactiveThresholdDays.value),
     hideWhitelisted: elements.hideWhitelisted.checked,
     showUnknown: elements.showUnknown.checked,
@@ -53,15 +65,20 @@ async function handleSubmit(event) {
   };
 
   await saveSettings(settings);
-  setStatus("设置已保存。");
+  applyLanguage(settings);
+  setStatus(currentText.saved);
 }
+
+elements.appLanguage.addEventListener("change", () => {
+  applyLanguage({ appLanguage: elements.appLanguage.value });
+});
 
 elements.form.addEventListener("submit", (event) => {
   handleSubmit(event).catch((error) => {
-    setStatus(`保存失败：${error.message}`);
+    setStatus(formatMessage(currentText.saveFailed, { message: error.message }));
   });
 });
 
 loadSettings().catch((error) => {
-  setStatus(`设置加载失败：${error.message}`);
+  setStatus(formatMessage(currentText.loadFailed, { message: error.message }));
 });

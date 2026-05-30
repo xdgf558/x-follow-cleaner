@@ -74,7 +74,7 @@ button:hover {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -147,8 +147,9 @@ button:hover {
 }
 
 .batch-actions {
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
+  grid-template-columns: repeat(2, 132px);
   gap: 8px;
 }
 
@@ -180,7 +181,7 @@ button:hover {
 
 .account-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) 132px;
   gap: 14px;
   align-items: center;
   min-height: 112px;
@@ -234,14 +235,14 @@ button:hover {
 }
 
 .account-meta {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 16px;
   margin: 0;
 }
 
 .account-meta div {
-  min-width: 140px;
+  min-width: 0;
 }
 
 .account-meta dt {
@@ -250,6 +251,7 @@ button:hover {
 }
 
 .account-meta dd {
+  overflow-wrap: anywhere;
   margin: 3px 0 0;
   color: #111827;
   font-size: 13px;
@@ -268,6 +270,11 @@ button:hover {
 .status-unknown {
   background: #eef2f7;
   color: #475569;
+}
+
+.status-review {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status-active {
@@ -301,6 +308,15 @@ button:hover {
   gap: 8px;
 }
 
+.evidence-link a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.evidence-link a:hover {
+  text-decoration: underline;
+}
+
 .empty-state {
   padding: 28px;
   border: 1px dashed #b7c3d4;
@@ -321,12 +337,17 @@ button:hover {
 
   .row-actions {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .batch-panel {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .batch-actions {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
