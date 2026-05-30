@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = {
   showUnknown: true,
   defaultSort: "inactiveDaysDesc",
   languageHint: "en",
+  enableConservativeMode: true,
+  conservativeScanCooldownSeconds: 30,
   enableExperimentalBatchCheck: false,
   experimentalBatchSize: 20,
   experimentalMinDelaySeconds: 15,
@@ -35,6 +37,7 @@ export const DEFAULT_TASK_STATE = {
   unknownAccounts: 0,
   activeAccounts: 0,
   lastUpdatedAt: "",
+  lastScanAttemptAt: "",
   message: ""
 };
 

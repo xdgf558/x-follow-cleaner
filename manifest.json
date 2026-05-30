@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X Follow Cleaner",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local helper to review inactive X accounts you follow.",
   "permissions": [
     "storage",

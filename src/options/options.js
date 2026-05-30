@@ -7,6 +7,8 @@ const elements = {
   showUnknown: document.querySelector("#showUnknown"),
   defaultSort: document.querySelector("#defaultSort"),
   languageHint: document.querySelector("#languageHint"),
+  enableConservativeMode: document.querySelector("#enableConservativeMode"),
+  conservativeScanCooldownSeconds: document.querySelector("#conservativeScanCooldownSeconds"),
   saveStatus: document.querySelector("#saveStatus")
 };
 
@@ -22,6 +24,8 @@ async function loadSettings() {
   elements.showUnknown.checked = Boolean(settings.showUnknown);
   elements.defaultSort.value = settings.defaultSort || "inactiveDaysDesc";
   elements.languageHint.value = settings.languageHint || "en";
+  elements.enableConservativeMode.checked = Boolean(settings.enableConservativeMode);
+  elements.conservativeScanCooldownSeconds.value = String(settings.conservativeScanCooldownSeconds || 30);
 }
 
 async function handleSubmit(event) {
@@ -33,6 +37,8 @@ async function handleSubmit(event) {
     showUnknown: elements.showUnknown.checked,
     defaultSort: elements.defaultSort.value,
     languageHint: elements.languageHint.value,
+    enableConservativeMode: elements.enableConservativeMode.checked,
+    conservativeScanCooldownSeconds: Number(elements.conservativeScanCooldownSeconds.value),
     enableExperimentalBatchCheck: false
   };
 

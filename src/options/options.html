@@ -54,9 +54,28 @@
           </label>
         </section>
 
+        <section class="settings-section" aria-labelledby="safetyTitle">
+          <h2 id="safetyTitle">安全节奏</h2>
+
+          <label class="field checkbox-field">
+            <input id="enableConservativeMode" name="enableConservativeMode" type="checkbox">
+            <span>保守验证节奏</span>
+          </label>
+
+          <label class="field">
+            <span>扫描按钮等待时间</span>
+            <select id="conservativeScanCooldownSeconds" name="conservativeScanCooldownSeconds">
+              <option value="30">30 秒</option>
+              <option value="45">45 秒</option>
+              <option value="60">60 秒</option>
+            </select>
+          </label>
+        </section>
+
         <section class="settings-section warning-section" aria-label="安全提示">
           <p>本插件只用于辅助你查看自己关注账户的公开活跃情况。</p>
           <p>插件不会自动取关任何账户。</p>
+          <p>开启保守验证节奏后，两次扫描当前页面之间必须等待至少 30 秒。</p>
           <p>建议你手动打开主页确认后再决定是否取关。</p>
           <p>出现验证、访问限制、页面异常时，请停止使用插件。</p>
         </section>

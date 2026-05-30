@@ -28,8 +28,42 @@ const elements = {
   clearLocalData: document.querySelector("#clearLocalData")
 };
 
+let scanCooldownTimerId = null;
+
 function setStatus(message) {
   elements.statusMessage.textContent = message;
+}
+
+function getScanCooldownRemainingSeconds(settings, taskState, now = Date.now()) {
+  if (!settings.enableConservativeMode) return 0;
+
+  const cooldownSeconds = Number(settings.conservativeScanCooldownSeconds || 30);
+  const lastScanAt = Date.parse(taskState.lastScanAttemptAt || "");
+  if (!Number.isFinite(lastScanAt)) return 0;
+
+  return Math.max(0, Math.ceil((lastScanAt + cooldownSeconds * 1000 - now) / 1000));
+}
+
+function renderScanCooldown(settings, taskState) {
+  if (scanCooldownTimerId) {
+    window.clearTimeout(scanCooldownTimerId);
+    scanCooldownTimerId = null;
+  }
+
+  const remainingSeconds = getScanCooldownRemainingSeconds(settings, taskState);
+  if (remainingSeconds > 0) {
+    elements.scanCurrentPage.disabled = true;
+    elements.scanCurrentPage.textContent = `扫描当前页面（${remainingSeconds}s）`;
+    scanCooldownTimerId = window.setTimeout(() => {
+      refreshPopup().catch((error) => {
+        setStatus(`Popup 刷新失败：${error.message}`);
+      });
+    }, 1000);
+    return;
+  }
+
+  elements.scanCurrentPage.disabled = false;
+  elements.scanCurrentPage.textContent = "扫描当前页面";
 }
 
 async function refreshPopup() {
@@ -44,6 +78,7 @@ async function refreshPopup() {
   elements.processedAccounts.textContent = String(summary.processed);
 
   setStatus(taskState.message || "等待用户手动操作。");
+  renderScanCooldown(settings, taskState);
 }
 
 async function openExtensionPage(path) {
@@ -113,10 +148,14 @@ async function injectProfileParser(tabId) {
 
 async function scanCurrentPage() {
   elements.scanCurrentPage.disabled = true;
+  elements.scanCurrentPage.textContent = "正在扫描...";
   setStatus("正在读取当前页面已经展示的关注账户...");
+  let scanAttemptAt = "";
 
   try {
     const tab = await getActiveTab();
+    const settings = await getSettings();
+    const taskState = await getTaskState();
 
     if (!tab?.id || !isXTab(tab)) {
       const message = "请先打开 x.com 或 twitter.com 的 Following 页面。";
@@ -132,10 +171,24 @@ async function scanCurrentPage() {
       return;
     }
 
+    const remainingSeconds = getScanCooldownRemainingSeconds(settings, taskState);
+    if (remainingSeconds > 0) {
+      const message = `保守验证节奏已开启，请等待 ${remainingSeconds} 秒后再扫描当前页面。`;
+      await saveTaskState({
+        currentStage: "safety-cooldown",
+        lastAction: "scanVisibleFollowing",
+        lastScanAttemptAt: taskState.lastScanAttemptAt,
+        message
+      });
+      await refreshPopup();
+      return;
+    }
+
+    scanAttemptAt = new Date().toISOString();
     const scanResult = await injectFollowingScanner(tab.id);
     if (!scanResult?.ok) {
       const message = scanResult?.message || "没有读取到账户，请确认页面已经加载 Following 列表。";
-      await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", message });
+      await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", lastScanAttemptAt: scanAttemptAt, message });
       setStatus(message);
       return;
     }
@@ -146,15 +199,21 @@ async function scanCurrentPage() {
       currentStage: "stage-2",
       lastAction: "scanVisibleFollowing",
       totalAccounts: allAccounts.length,
+      lastScanAttemptAt: scanAttemptAt,
       message
     });
     await refreshPopup();
   } catch (error) {
     const message = `扫描失败：${error.message}`;
-    await saveTaskState({ currentStage: "stage-2", lastAction: "scanVisibleFollowing", message });
+    await saveTaskState({
+      currentStage: "stage-2",
+      lastAction: "scanVisibleFollowing",
+      ...(scanAttemptAt ? { lastScanAttemptAt: scanAttemptAt } : {}),
+      message
+    });
     setStatus(message);
   } finally {
-    elements.scanCurrentPage.disabled = false;
+    await refreshPopup();
   }
 }
 
