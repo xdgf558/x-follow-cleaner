@@ -37,6 +37,54 @@
 
 是否允许进入下一阶段：是
 
+## v1.1 完成记录：低频自动检查
+
+完成时间：2026-05-30
+
+阶段目标：在用户明确要求后，增加默认关闭、低频、可见、可暂停的自动主页活跃度检查。
+
+完成内容：
+1. 设置页新增“低频自动检查”开关，默认关闭。
+2. 设置页支持每批 5、10、20 个账户，最大不超过 20。
+3. 设置页支持账户间隔 15-30 秒、30-60 秒、60-120 秒。
+4. 结果页新增低频自动检查面板。
+5. 结果页可从未处理、非白名单、尚未判断账户中选择一批检查。
+6. 运行时逐个打开可见 X 主页，不后台静默运行。
+7. 用户可以暂停。
+8. 每天最多检查 100 个账户。
+9. 出现验证或访问限制立即停止。
+10. README、stage-plan、test-checklist 和 known-issues 已更新。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/stage-plan.md`
+5. `docs/test-checklist.md`
+6. `docs/known-issues.md`
+7. `docs/development-log.md`
+8. `src/shared/constants.js`
+9. `src/shared/storage.js`
+10. `src/options/options.html`
+11. `src/options/options.js`
+12. `src/results/results.html`
+13. `src/results/results.css`
+14. `src/results/results.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+
+未完成内容：
+1. 真实 Chrome 中的低频自动检查流程需要人工验证。
+
+发现问题：
+1. 结果页关闭后当前批次会停止，已记录为已知问题。
+
+下一阶段注意事项：
+1. 不要把低频检查升级为高速、后台静默或自动取关。
+
+是否允许进入下一阶段：是
+
 ## 修复记录：降低验证页面误判
 
 完成时间：2026-05-30

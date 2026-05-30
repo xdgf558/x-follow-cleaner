@@ -1,7 +1,8 @@
 export const STORAGE_KEYS = {
   ACCOUNTS: "xFollowCleaner.accounts",
   SETTINGS: "xFollowCleaner.settings",
-  TASK_STATE: "xFollowCleaner.taskState"
+  TASK_STATE: "xFollowCleaner.taskState",
+  BATCH_USAGE: "xFollowCleaner.batchUsage"
 };
 
 export const AccountStatus = {
@@ -25,7 +26,8 @@ export const DEFAULT_SETTINGS = {
   enableExperimentalBatchCheck: false,
   experimentalBatchSize: 20,
   experimentalMinDelaySeconds: 15,
-  experimentalMaxDelaySeconds: 30
+  experimentalMaxDelaySeconds: 30,
+  experimentalDailyLimit: 100
 };
 
 export const DEFAULT_TASK_STATE = {

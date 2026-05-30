@@ -131,19 +131,51 @@ export async function getSettings() {
   const result = await storageGet(STORAGE_KEYS.SETTINGS);
   return {
     ...DEFAULT_SETTINGS,
-    ...(result[STORAGE_KEYS.SETTINGS] || {}),
-    enableExperimentalBatchCheck: false
+    ...(result[STORAGE_KEYS.SETTINGS] || {})
   };
 }
 
 export async function saveSettings(settings) {
+  const minDelay = Number(settings?.experimentalMinDelaySeconds || DEFAULT_SETTINGS.experimentalMinDelaySeconds);
+  const maxDelay = Number(settings?.experimentalMaxDelaySeconds || DEFAULT_SETTINGS.experimentalMaxDelaySeconds);
   const safeSettings = {
     ...DEFAULT_SETTINGS,
     ...(settings || {}),
-    enableExperimentalBatchCheck: false
+    experimentalBatchSize: Math.min(20, Math.max(1, Number(settings?.experimentalBatchSize || DEFAULT_SETTINGS.experimentalBatchSize))),
+    experimentalMinDelaySeconds: Math.max(15, minDelay),
+    experimentalMaxDelaySeconds: Math.max(Math.max(15, minDelay), maxDelay),
+    experimentalDailyLimit: 100
   };
   await storageSet({ [STORAGE_KEYS.SETTINGS]: safeSettings });
   return safeSettings;
+}
+
+export async function getBatchUsage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const result = await storageGet(STORAGE_KEYS.BATCH_USAGE);
+  const usage = result[STORAGE_KEYS.BATCH_USAGE] || {};
+
+  if (usage.date !== today) {
+    return {
+      date: today,
+      checkedCount: 0
+    };
+  }
+
+  return {
+    date: today,
+    checkedCount: Number(usage.checkedCount || 0)
+  };
+}
+
+export async function incrementBatchUsage(count = 1) {
+  const usage = await getBatchUsage();
+  const nextUsage = {
+    ...usage,
+    checkedCount: usage.checkedCount + count
+  };
+  await storageSet({ [STORAGE_KEYS.BATCH_USAGE]: nextUsage });
+  return nextUsage;
 }
 
 export async function getTaskState() {

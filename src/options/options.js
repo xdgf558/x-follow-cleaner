@@ -9,6 +9,9 @@ const elements = {
   languageHint: document.querySelector("#languageHint"),
   enableConservativeMode: document.querySelector("#enableConservativeMode"),
   conservativeScanCooldownSeconds: document.querySelector("#conservativeScanCooldownSeconds"),
+  enableExperimentalBatchCheck: document.querySelector("#enableExperimentalBatchCheck"),
+  experimentalBatchSize: document.querySelector("#experimentalBatchSize"),
+  experimentalDelayPreset: document.querySelector("#experimentalDelayPreset"),
   saveStatus: document.querySelector("#saveStatus")
 };
 
@@ -26,12 +29,16 @@ async function loadSettings() {
   elements.languageHint.value = settings.languageHint || "en";
   elements.enableConservativeMode.checked = Boolean(settings.enableConservativeMode);
   elements.conservativeScanCooldownSeconds.value = String(settings.conservativeScanCooldownSeconds || 30);
+  elements.enableExperimentalBatchCheck.checked = Boolean(settings.enableExperimentalBatchCheck);
+  elements.experimentalBatchSize.value = String(settings.experimentalBatchSize || 20);
+  elements.experimentalDelayPreset.value = `${settings.experimentalMinDelaySeconds || 15}-${settings.experimentalMaxDelaySeconds || 30}`;
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
 
   const settings = {
+    ...await getSettings(),
     inactiveThresholdDays: Number(elements.inactiveThresholdDays.value),
     hideWhitelisted: elements.hideWhitelisted.checked,
     showUnknown: elements.showUnknown.checked,
@@ -39,7 +46,10 @@ async function handleSubmit(event) {
     languageHint: elements.languageHint.value,
     enableConservativeMode: elements.enableConservativeMode.checked,
     conservativeScanCooldownSeconds: Number(elements.conservativeScanCooldownSeconds.value),
-    enableExperimentalBatchCheck: false
+    enableExperimentalBatchCheck: elements.enableExperimentalBatchCheck.checked,
+    experimentalBatchSize: Number(elements.experimentalBatchSize.value),
+    experimentalMinDelaySeconds: Number(elements.experimentalDelayPreset.value.split("-")[0]),
+    experimentalMaxDelaySeconds: Number(elements.experimentalDelayPreset.value.split("-")[1])
   };
 
   await saveSettings(settings);

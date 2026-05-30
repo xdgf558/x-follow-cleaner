@@ -54,6 +54,17 @@
         </label>
       </section>
 
+      <section class="batch-panel" aria-label="低频自动检查">
+        <div>
+          <h2>低频自动检查</h2>
+          <p id="batchStatus">默认关闭。可在设置页开启后，从当前结果中低频逐个打开主页检查。</p>
+        </div>
+        <div class="batch-actions">
+          <button id="startBatchCheck" type="button">开始低频检查</button>
+          <button id="pauseBatchCheck" type="button" disabled>暂停</button>
+        </div>
+      </section>
+
       <nav class="tabs" aria-label="结果标签">
         <button class="tab-button active" type="button" data-filter="all">全部账户</button>
         <button class="tab-button" type="button" data-filter="inactive">超过 30 天未活跃</button>

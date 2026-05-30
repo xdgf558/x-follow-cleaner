@@ -1,5 +1,7 @@
-import { getAccounts, getSettings, summarizeAccounts, updateAccount } from "../shared/storage.js";
+import { getAccounts, getBatchUsage, getSettings, incrementBatchUsage, summarizeAccounts, updateAccount } from "../shared/storage.js";
 import { accountsToCsv, createExportFilename, downloadTextFile } from "../shared/csvUtils.js";
+import { AccountStatus } from "../shared/constants.js";
+import { diffDays } from "../shared/dateUtils.js";
 import {
   accountMatchesFilter,
   getEffectiveAccount,
@@ -12,7 +14,13 @@ const state = {
   accounts: [],
   settings: {},
   filter: "all",
-  search: ""
+  search: "",
+  batch: {
+    running: false,
+    stopRequested: false,
+    tabId: null,
+    message: ""
+  }
 };
 
 const elements = {
@@ -26,6 +34,9 @@ const elements = {
   refreshResults: document.querySelector("#refreshResults"),
   exportCsv: document.querySelector("#exportCsv"),
   exportJson: document.querySelector("#exportJson"),
+  batchStatus: document.querySelector("#batchStatus"),
+  startBatchCheck: document.querySelector("#startBatchCheck"),
+  pauseBatchCheck: document.querySelector("#pauseBatchCheck"),
   accountList: document.querySelector("#accountList"),
   rowTemplate: document.querySelector("#accountRowTemplate")
 };
@@ -137,6 +148,7 @@ function renderAccount(account) {
 
 function renderAccounts() {
   updateSummary();
+  renderBatchPanel();
   elements.accountList.replaceChildren();
 
   const accounts = getFilteredAccounts();
@@ -155,6 +167,41 @@ function renderAccounts() {
     fragment.append(renderAccount(account));
   }
   elements.accountList.append(fragment);
+}
+
+function getBatchCandidates() {
+  return state.accounts
+    .map((account) => getEffectiveAccount(account, state.settings))
+    .filter((account) => {
+      if (account.whitelisted || account.processed) return false;
+      if (account.status === AccountStatus.ACTIVE || account.status === AccountStatus.INACTIVE) return false;
+      return Boolean(account.username);
+    });
+}
+
+function renderBatchPanel(message = null) {
+  if (message !== null) {
+    state.batch.message = message;
+  }
+
+  const enabled = Boolean(state.settings.enableExperimentalBatchCheck);
+
+  elements.startBatchCheck.disabled = state.batch.running || !enabled;
+  elements.pauseBatchCheck.disabled = !state.batch.running;
+
+  if (state.batch.message) {
+    elements.batchStatus.textContent = state.batch.message;
+    return;
+  }
+
+  if (!enabled) {
+    elements.batchStatus.textContent = "默认关闭。请先到设置页开启低频自动检查。";
+    return;
+  }
+
+  const candidates = getBatchCandidates();
+  const batchSize = Math.min(Number(state.settings.experimentalBatchSize || 20), 20);
+  elements.batchStatus.textContent = `已开启。每批最多 ${batchSize} 个，间隔 ${state.settings.experimentalMinDelaySeconds}-${state.settings.experimentalMaxDelaySeconds} 秒，每天最多 100 个。当前可检查 ${candidates.length} 个。`;
 }
 
 async function loadAccounts() {
@@ -193,6 +240,218 @@ function exportJson() {
     JSON.stringify(payload, null, 2),
     "application/json;charset=utf-8"
   );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function randomDelaySeconds(min, max) {
+  const safeMin = Math.max(15, Number(min || 15));
+  const safeMax = Math.max(safeMin, Number(max || 30));
+  return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
+}
+
+async function waitForTabComplete(tabId, timeoutMs = 30000) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (tab?.status === "complete") return;
+
+  await new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("主页加载超时，请稍后重试。"));
+    }, timeoutMs);
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+      chrome.tabs.onUpdated.removeListener(handleUpdated);
+      chrome.tabs.onRemoved.removeListener(handleRemoved);
+    }
+
+    function handleUpdated(updatedTabId, changeInfo) {
+      if (updatedTabId === tabId && changeInfo.status === "complete") {
+        cleanup();
+        resolve();
+      }
+    }
+
+    function handleRemoved(removedTabId) {
+      if (removedTabId === tabId) {
+        cleanup();
+        reject(new Error("检查标签页已关闭，低频检查已停止。"));
+      }
+    }
+
+    chrome.tabs.onUpdated.addListener(handleUpdated);
+    chrome.tabs.onRemoved.addListener(handleRemoved);
+  });
+}
+
+async function openProfileForBatch(account) {
+  const url = account.profileUrl || `https://x.com/${account.username}`;
+
+  if (state.batch.tabId) {
+    const existingTab = await chrome.tabs.get(state.batch.tabId).catch(() => null);
+    if (existingTab) {
+      await chrome.tabs.update(state.batch.tabId, { url, active: true });
+      return state.batch.tabId;
+    }
+  }
+
+  const tab = await chrome.tabs.create({ url, active: true });
+  state.batch.tabId = tab.id;
+  return tab.id;
+}
+
+async function injectProfileParser(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["src/content/profileActivityParser.js"]
+  });
+
+  const [injectionResult] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      return window.XFollowCleanerProfileParser?.scanProfileActivity?.() || {
+        ok: false,
+        code: "parser_missing",
+        message: "主页读取脚本未能加载，请刷新页面后再试。"
+      };
+    }
+  });
+
+  return injectionResult?.result;
+}
+
+async function saveProfileResult(account, result) {
+  const checkedAt = new Date().toISOString();
+  const username = result?.username || account.username;
+  let patch = {
+    profileUrl: account.profileUrl || `https://x.com/${username}`,
+    lastCheckedAt: checkedAt,
+    errorMessage: result?.message || ""
+  };
+
+  if (result?.ok && result.lastPostAt) {
+    const inactiveDays = Number.isFinite(result.inactiveDays)
+      ? result.inactiveDays
+      : diffDays(result.lastPostAt);
+
+    patch = {
+      ...patch,
+      lastPostAt: result.lastPostAt,
+      inactiveDays,
+      status: inactiveDays > state.settings.inactiveThresholdDays
+        ? AccountStatus.INACTIVE
+        : AccountStatus.ACTIVE,
+      errorMessage: ""
+    };
+  } else if (result?.ok) {
+    patch = {
+      ...patch,
+      lastPostAt: "",
+      inactiveDays: null,
+      status: AccountStatus.UNKNOWN
+    };
+  } else {
+    patch = {
+      ...patch,
+      lastPostAt: "",
+      inactiveDays: null,
+      status: AccountStatus.ERROR
+    };
+  }
+
+  await updateAccount(username, patch);
+  return patch;
+}
+
+function shouldStopForSafety(result) {
+  return result?.code === "verification" || result?.code === "rate_limited";
+}
+
+async function runBatchCheck() {
+  if (state.batch.running) return;
+
+  state.batch.running = true;
+  state.batch.stopRequested = false;
+  state.batch.message = "";
+  renderBatchPanel("正在准备低频自动检查...");
+
+  try {
+    await loadAccounts();
+
+    if (!state.settings.enableExperimentalBatchCheck) {
+      renderBatchPanel("低频自动检查未开启。请先到设置页开启。");
+      return;
+    }
+
+    const usage = await getBatchUsage();
+    const remainingToday = Math.max(0, Number(state.settings.experimentalDailyLimit || 100) - usage.checkedCount);
+    if (remainingToday <= 0) {
+      renderBatchPanel("今天已经达到 100 个账户的低频检查上限，请明天再继续。");
+      return;
+    }
+
+    const batchSize = Math.min(Number(state.settings.experimentalBatchSize || 20), 20, remainingToday);
+    const candidates = getBatchCandidates().slice(0, batchSize);
+    if (candidates.length === 0) {
+      renderBatchPanel("当前没有需要低频检查的账户。");
+      return;
+    }
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      if (state.batch.stopRequested) {
+        renderBatchPanel("低频检查已暂停。");
+        return;
+      }
+
+      const account = candidates[index];
+      renderBatchPanel(`正在检查 ${index + 1}/${candidates.length}：@${account.username}。运行中会逐个打开主页。`);
+
+      const tabId = await openProfileForBatch(account);
+      await waitForTabComplete(tabId);
+      await sleep(3500);
+
+      const result = await injectProfileParser(tabId);
+      await saveProfileResult(account, result);
+      await incrementBatchUsage(1);
+      await loadAccounts();
+
+      if (shouldStopForSafety(result)) {
+        renderBatchPanel(`检测到 ${result.code === "verification" ? "验证要求" : "访问限制"}，低频检查已停止。请手动处理后再继续。`);
+        return;
+      }
+
+      if (index < candidates.length - 1) {
+        const delaySeconds = randomDelaySeconds(
+          state.settings.experimentalMinDelaySeconds,
+          state.settings.experimentalMaxDelaySeconds
+        );
+        for (let remaining = delaySeconds; remaining > 0; remaining -= 1) {
+          if (state.batch.stopRequested) {
+            renderBatchPanel("低频检查已暂停。");
+            return;
+          }
+          renderBatchPanel(`@${account.username} 已检查。等待 ${remaining} 秒后继续下一个账户。`);
+          await sleep(1000);
+        }
+      }
+    }
+
+    renderBatchPanel(`本批低频检查完成，共检查 ${candidates.length} 个账户。`);
+  } catch (error) {
+    renderBatchPanel(`低频检查已停止：${error.message}`);
+  } finally {
+    state.batch.running = false;
+    state.batch.stopRequested = false;
+    await loadAccounts();
+  }
+}
+
+function pauseBatchCheck() {
+  state.batch.stopRequested = true;
+  renderBatchPanel("正在暂停，当前步骤结束后会停止。");
 }
 
 async function handleRowAction(event) {
@@ -234,6 +493,8 @@ elements.searchInput.addEventListener("input", (event) => {
 elements.refreshResults.addEventListener("click", loadAccounts);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.exportJson.addEventListener("click", exportJson);
+elements.startBatchCheck.addEventListener("click", runBatchCheck);
+elements.pauseBatchCheck.addEventListener("click", pauseBatchCheck);
 elements.accountList.addEventListener("click", handleRowAction);
 
 document.querySelectorAll(".tab-button").forEach((button) => {

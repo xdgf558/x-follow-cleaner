@@ -122,6 +122,40 @@ button:hover {
   color: #111827;
 }
 
+.batch-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #ffd8a8;
+  border-radius: 8px;
+  background: #fff8ed;
+}
+
+.batch-panel h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.batch-panel p {
+  margin: 0;
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.batch-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.batch-actions button {
+  width: 132px;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -288,6 +322,11 @@ button:hover {
   .row-actions {
     grid-column: 1 / -1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .batch-panel {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

@@ -80,6 +80,35 @@
           <p>出现验证、访问限制、页面异常时，请停止使用插件。</p>
         </section>
 
+        <section class="settings-section warning-section" aria-labelledby="batchTitle">
+          <h2 id="batchTitle">低频自动检查</h2>
+
+          <label class="field checkbox-field">
+            <input id="enableExperimentalBatchCheck" name="enableExperimentalBatchCheck" type="checkbox">
+            <span>开启低频自动检查</span>
+          </label>
+
+          <label class="field">
+            <span>每批最多检查</span>
+            <select id="experimentalBatchSize" name="experimentalBatchSize">
+              <option value="5">5 个账户</option>
+              <option value="10">10 个账户</option>
+              <option value="20">20 个账户</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>账户间隔</span>
+            <select id="experimentalDelayPreset" name="experimentalDelayPreset">
+              <option value="15-30">15 到 30 秒</option>
+              <option value="30-60">30 到 60 秒</option>
+              <option value="60-120">60 到 120 秒</option>
+            </select>
+          </label>
+
+          <p>默认关闭。开启后结果页才会显示“开始低频检查”。运行时会逐个打开主页，出现验证或访问限制会立即停止。每天最多检查 100 个账户。</p>
+        </section>
+
         <div class="form-actions">
           <button id="saveSettings" type="submit">保存设置</button>
           <p id="saveStatus" role="status"></p>
