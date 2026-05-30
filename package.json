@@ -5,6 +5,7 @@
   "type": "module",
   "description": "A local Chrome extension helper for reviewing inactive X following accounts.",
   "scripts": {
-    "check": "node tools/check-extension.mjs"
+    "check": "node tools/check-extension.mjs",
+    "package": "node tools/package-extension.mjs"
   }
 }

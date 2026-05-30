@@ -1,5 +1,41 @@
 # Development Log
 
+## 分发记录：GitHub Releases 打包版
+
+完成时间：2026-05-30
+
+阶段目标：增加可重复生成的干净 zip 打包流程，方便 GitHub Releases 和个人网站下载分发。
+
+完成内容：
+1. 新增 `npm run package`。
+2. 打包文件只包含插件运行所需的 `manifest.json`、`README.md`、`assets` 和 `src`。
+3. zip 根目录直接包含 `manifest.json`，便于开发者模式安装，也便于后续 Chrome Web Store 上传准备。
+4. README 新增 GitHub Releases 下载和个人网站分发建议。
+5. README 修正低频自动检查相关 FAQ。
+
+修改文件：
+1. `.gitignore`
+2. `package.json`
+3. `tools/package-extension.mjs`
+4. `README.md`
+5. `docs/development-log.md`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. `npm run package` 已运行并生成 `dist/x-follow-cleaner-v0.2.0.zip`。
+3. `unzip -l dist/x-follow-cleaner-v0.2.0.zip` 已确认 zip 只包含插件运行文件。
+
+未完成内容：
+1. GitHub Release 资产待上传。
+
+发现问题：
+1. 无。
+
+下一阶段注意事项：
+1. 每次版本号变更后都应重新运行 `npm run package` 并上传新的 Release 资产。
+
+是否允许进入下一阶段：是
+
 ## 阶段 0 完成记录
 
 完成时间：2026-05-30
