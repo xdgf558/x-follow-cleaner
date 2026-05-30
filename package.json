@@ -1,0 +1,10 @@
+{
+  "name": "x-follow-cleaner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A local Chrome extension helper for reviewing inactive X following accounts.",
+  "scripts": {
+    "check": "node tools/check-extension.mjs"
+  }
+}

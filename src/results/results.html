@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>X Follow Cleaner Results</title>
+    <link rel="stylesheet" href="./results.css">
+  </head>
+  <body>
+    <main class="results-shell">
+      <header class="results-header">
+        <div>
+          <p class="eyebrow">X Follow Cleaner</p>
+          <h1>关注账户结果</h1>
+        </div>
+        <div class="header-actions">
+          <button id="exportCsv" type="button">导出 CSV</button>
+          <button id="exportJson" type="button">导出 JSON</button>
+          <button id="refreshResults" type="button">刷新</button>
+        </div>
+      </header>
+
+      <section class="summary-grid" aria-label="账户统计">
+        <article>
+          <span>全部账户</span>
+          <strong id="summaryTotal">0</strong>
+        </article>
+        <article>
+          <span>超过 30 天未活跃</span>
+          <strong id="summaryInactive">0</strong>
+        </article>
+        <article>
+          <span>30 天内活跃</span>
+          <strong id="summaryActive">0</strong>
+        </article>
+        <article>
+          <span>无法判断</span>
+          <strong id="summaryUnknown">0</strong>
+        </article>
+        <article>
+          <span>白名单</span>
+          <strong id="summaryWhitelisted">0</strong>
+        </article>
+        <article>
+          <span>已处理</span>
+          <strong id="summaryProcessed">0</strong>
+        </article>
+      </section>
+
+      <section class="toolbar" aria-label="结果筛选">
+        <label>
+          <span>搜索 username</span>
+          <input id="searchInput" type="search" placeholder="例如 openai">
+        </label>
+      </section>
+
+      <nav class="tabs" aria-label="结果标签">
+        <button class="tab-button active" type="button" data-filter="all">全部账户</button>
+        <button class="tab-button" type="button" data-filter="inactive">超过 30 天未活跃</button>
+        <button class="tab-button" type="button" data-filter="active">30 天内活跃</button>
+        <button class="tab-button" type="button" data-filter="unknown">无法判断</button>
+        <button class="tab-button" type="button" data-filter="whitelisted">白名单</button>
+        <button class="tab-button" type="button" data-filter="processed">已处理</button>
+      </nav>
+
+      <section class="account-list" id="accountList" aria-live="polite"></section>
+
+      <template id="accountRowTemplate">
+        <article class="account-row">
+          <div class="avatar-wrap"></div>
+          <div class="account-main">
+            <div class="account-title">
+              <h2 class="display-name"></h2>
+              <span class="status-badge"></span>
+            </div>
+            <p class="username"></p>
+            <dl class="account-meta">
+              <div>
+                <dt>最近发帖时间</dt>
+                <dd class="last-post"></dd>
+              </div>
+              <div>
+                <dt>未活跃天数</dt>
+                <dd class="inactive-days"></dd>
+              </div>
+            </dl>
+          </div>
+          <div class="row-actions">
+            <button type="button" data-action="open">打开主页</button>
+            <button type="button" data-action="processed">标记已处理</button>
+            <button type="button" data-action="whitelist">加入白名单</button>
+          </div>
+        </article>
+      </template>
+    </main>
+
+    <script type="module" src="./results.js"></script>
+  </body>
+</html>

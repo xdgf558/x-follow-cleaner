@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>X Follow Cleaner Settings</title>
+    <link rel="stylesheet" href="./options.css">
+  </head>
+  <body>
+    <main class="settings-shell">
+      <header class="settings-header">
+        <p class="eyebrow">X Follow Cleaner</p>
+        <h1>设置</h1>
+      </header>
+
+      <form id="settingsForm" class="settings-form">
+        <section class="settings-section" aria-labelledby="rulesTitle">
+          <h2 id="rulesTitle">判断规则</h2>
+
+          <label class="field">
+            <span>未活跃判断天数</span>
+            <select id="inactiveThresholdDays" name="inactiveThresholdDays">
+              <option value="30">30 天</option>
+              <option value="60">60 天</option>
+              <option value="90">90 天</option>
+              <option value="180">180 天</option>
+            </select>
+          </label>
+
+          <label class="field checkbox-field">
+            <input id="hideWhitelisted" name="hideWhitelisted" type="checkbox">
+            <span>隐藏白名单账户</span>
+          </label>
+
+          <label class="field checkbox-field">
+            <input id="showUnknown" name="showUnknown" type="checkbox">
+            <span>显示无法判断账户</span>
+          </label>
+
+          <label class="field">
+            <span>默认排序</span>
+            <select id="defaultSort" name="defaultSort">
+              <option value="inactiveDaysDesc">未活跃天数从高到低</option>
+              <option value="lastCheckedAtDesc">最近检查时间从新到旧</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>X 页面语言提示</span>
+            <select id="languageHint" name="languageHint">
+              <option value="en">英文</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-section warning-section" aria-label="安全提示">
+          <p>本插件只用于辅助你查看自己关注账户的公开活跃情况。</p>
+          <p>插件不会自动取关任何账户。</p>
+          <p>建议你手动打开主页确认后再决定是否取关。</p>
+          <p>出现验证、访问限制、页面异常时，请停止使用插件。</p>
+        </section>
+
+        <div class="form-actions">
+          <button id="saveSettings" type="submit">保存设置</button>
+          <p id="saveStatus" role="status"></p>
+        </div>
+      </form>
+    </main>
+
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>
