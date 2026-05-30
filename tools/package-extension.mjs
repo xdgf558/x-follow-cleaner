@@ -14,6 +14,7 @@ const zipPath = join(distDir, `${packageName}.zip`);
 const releaseFiles = [
   "manifest.json",
   "README.md",
+  "LICENSE",
   "assets",
   "src"
 ];

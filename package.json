@@ -1,9 +1,17 @@
 {
   "name": "x-follow-cleaner",
-  "version": "0.3.0",
-  "private": true,
+  "version": "0.3.1",
   "type": "module",
   "description": "A local Chrome extension helper for reviewing inactive X following accounts.",
+  "license": "MIT",
+  "homepage": "https://github.com/xdgf558/x-follow-cleaner#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xdgf558/x-follow-cleaner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xdgf558/x-follow-cleaner/issues"
+  },
   "scripts": {
     "check": "node tools/check-extension.mjs",
     "package": "node tools/package-extension.mjs"

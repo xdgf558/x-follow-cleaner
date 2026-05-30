@@ -1,5 +1,44 @@
 # Development Log
 
+## 开源记录：MIT License
+
+完成时间：2026-05-31
+
+阶段目标：按 MIT License 要求完成项目开源基础文件，并让 README 更方便普通用户安装使用。
+
+完成内容：
+1. 新增标准 MIT `LICENSE` 文件。
+2. `package.json` 标注 `license: MIT`，并补充仓库、主页和 Issues 地址。
+3. 打包脚本加入 `LICENSE`，确保 Release zip 分发时携带许可证。
+4. 自检脚本加入 `LICENSE` 必需文件检查。
+5. README 新增快速安装、更新方法、源码打包、隐私说明、开源协议和参与开发说明。
+6. 版本号更新到 `0.3.1`。
+
+修改文件：
+1. `LICENSE`
+2. `manifest.json`
+3. `package.json`
+4. `README.md`
+5. `tools/package-extension.mjs`
+6. `tools/check-extension.mjs`
+7. `docs/development-log.md`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. `npm run package` 已运行并生成 `dist/x-follow-cleaner-v0.3.1.zip`。
+3. `unzip -l dist/x-follow-cleaner-v0.3.1.zip` 已确认 zip 包含 `LICENSE`。
+
+未完成内容：
+1. 无。
+
+发现问题：
+1. 无。
+
+下一阶段注意事项：
+1. 以后发布任何 zip 或复制项目主要代码时，需要保留 `LICENSE` 和版权声明。
+
+是否允许进入下一阶段：是
+
 ## v1.2 完成记录：复核、依据和双语切换
 
 完成时间：2026-05-31

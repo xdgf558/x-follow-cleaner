@@ -8,6 +8,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const requiredFiles = [
   "manifest.json",
   "README.md",
+  "LICENSE",
   "src/background/serviceWorker.js",
   "src/content/followingScanner.js",
   "src/content/profileActivityParser.js",
