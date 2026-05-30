@@ -37,6 +37,39 @@
 
 是否允许进入下一阶段：是
 
+## 修复记录：降低验证页面误判
+
+完成时间：2026-05-30
+
+阶段目标：修复正常浏览 X Following 页面时误提示“页面疑似出现验证要求”的问题。
+
+完成内容：
+1. 移除过宽的 `verify + account` 文案判断。
+2. 改为匹配更明确的验证挑战文案，例如 CAPTCHA、confirm your identity、complete challenge、unusual activity。
+3. 如果页面已经有可见 Following 用户卡片或主页内容，不再仅凭页面文案触发验证拦截。
+4. 版本号更新到 `0.1.2`。
+
+修改文件：
+1. `src/content/followingScanner.js`
+2. `src/content/profileActivityParser.js`
+3. `manifest.json`
+4. `package.json`
+5. `docs/development-log.md`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+
+未完成内容：
+1. 真实 X 页面需要用户重新加载插件后再验证。
+
+发现问题：
+1. X 页面文案会变化，验证页面检测仍需保持保守但避免普通页面误判。
+
+下一阶段注意事项：
+1. 用户需要在 `chrome://extensions` 里 Reload 插件后重试扫描。
+
+是否允许进入下一阶段：是
+
 ## 阶段 1 完成记录
 
 完成时间：2026-05-30

@@ -90,6 +90,33 @@
     return String(element?.textContent || "").replace(/\s+/g, " ").trim();
   }
 
+  function hasVisibleProfileContent() {
+    return Boolean(document.querySelector('article[data-testid="tweet"], [data-testid="UserName"]'));
+  }
+
+  function hasVerificationChallenge(pageText) {
+    const challengePhrases = [
+      "verify your account",
+      "verify your identity",
+      "verify that you are human",
+      "verify you are human",
+      "confirm your identity",
+      "complete this challenge",
+      "complete the challenge",
+      "captcha",
+      "are you a robot",
+      "unusual activity",
+      "unusual login activity",
+      "suspicious activity",
+      "help us keep your account safe",
+      "account is temporarily locked",
+      "temporarily locked your account",
+      "authenticate your account"
+    ];
+
+    return challengePhrases.some((phrase) => pageText.includes(phrase));
+  }
+
   function detectProfileAccessState() {
     const pageText = textOf(document.body).toLowerCase();
 
@@ -109,12 +136,7 @@
       };
     }
 
-    if (
-      (pageText.includes("verify") && pageText.includes("account")) ||
-      pageText.includes("captcha") ||
-      pageText.includes("are you a robot") ||
-      pageText.includes("unusual activity")
-    ) {
+    if (hasVerificationChallenge(pageText) && !hasVisibleProfileContent()) {
       return {
         ok: false,
         code: "verification",
