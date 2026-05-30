@@ -1,5 +1,47 @@
 # Development Log
 
+## 修复记录：降低主页活跃度误判
+
+完成时间：2026-05-30
+
+阶段目标：降低“显示未活跃几十天，但主页实际近期发帖”的误判概率。
+
+完成内容：
+1. 主页解析器只读取当前主页用户名自己的 `/用户名/status/...` 时间链接。
+2. 不再简单读取可见帖子里的第一个 `time`，避免读到引用帖、转发原帖或其他账号内容的时间。
+3. 自动检查保存结果前会确认目标主页 URL 和目标用户名匹配。
+4. 自动检查会等待目标主页内容稳定，避免连续切换主页时保存上一个账号的页面残留时间。
+5. 自动检查保存结果时固定更新当前批次账号，避免解析结果里的用户名污染其他账号。
+6. README、known-issues 和 test-checklist 已更新。
+7. 版本号更新到 `0.2.1`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/development-log.md`
+5. `docs/known-issues.md`
+6. `docs/test-checklist.md`
+7. `src/content/profileActivityParser.js`
+8. `src/popup/popup.js`
+9. `src/results/results.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. `npm run package` 已运行并生成 `dist/x-follow-cleaner-v0.2.1.zip`。
+3. `unzip -l dist/x-follow-cleaner-v0.2.1.zip` 已确认 zip 只包含插件运行文件。
+
+未完成内容：
+1. 真实 X 页面仍需要人工回归验证。
+
+发现问题：
+1. 如果 X 当前可见内容里没有属于该账号自己的公开帖子时间，插件会更倾向于标记 unknown，而不是冒险保存旧时间。
+
+下一阶段注意事项：
+1. 后续若继续提高准确率，应增加结果页“重新检查已判断账号”的显式按钮，不要自动高速重查。
+
+是否允许进入下一阶段：是
+
 ## 分发记录：GitHub Releases 打包版
 
 完成时间：2026-05-30

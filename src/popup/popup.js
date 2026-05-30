@@ -126,7 +126,7 @@ async function injectFollowingScanner(tabId) {
   return injectionResult?.result;
 }
 
-async function injectProfileParser(tabId) {
+async function injectProfileParser(tabId, expectedUsername = "") {
   await chrome.scripting.executeScript({
     target: { tabId },
     files: ["src/content/profileActivityParser.js"]
@@ -134,13 +134,14 @@ async function injectProfileParser(tabId) {
 
   const [injectionResult] = await chrome.scripting.executeScript({
     target: { tabId },
-    func: () => {
-      return window.XFollowCleanerProfileParser?.scanProfileActivity?.() || {
+    func: (username) => {
+      return window.XFollowCleanerProfileParser?.scanProfileActivity?.(username) || {
         ok: false,
         code: "parser_missing",
         message: "主页读取脚本未能加载，请刷新页面后再试。"
       };
-    }
+    },
+    args: [expectedUsername]
   });
 
   return injectionResult?.result;
@@ -238,8 +239,9 @@ async function readProfileActivity() {
       return;
     }
 
-    const result = await injectProfileParser(tab.id);
-    const username = result?.username || getUsernameFromProfileTab(tab);
+    const expectedUsername = getUsernameFromProfileTab(tab);
+    const result = await injectProfileParser(tab.id, expectedUsername);
+    const username = result?.username || expectedUsername;
     const settings = await getSettings();
     const checkedAt = new Date().toISOString();
 

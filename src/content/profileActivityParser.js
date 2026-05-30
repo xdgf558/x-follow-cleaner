@@ -1,6 +1,6 @@
 (function initializeProfileActivityParser() {
-  if (window.XFollowCleanerProfileParser) return;
-
+  const PARSER_VERSION = "0.2.1";
+  if (window.XFollowCleanerProfileParser?.version === PARSER_VERSION) return;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const X_HOSTS = new Set(["x.com", "twitter.com"]);
   const RESERVED_PATHS = new Set([
@@ -241,6 +241,54 @@
     return Math.max(0, Math.floor((now.getTime() - date.getTime()) / DAY_MS));
   }
 
+  function getStatusLinkInfo(href) {
+    try {
+      const parsedUrl = new URL(href, location.origin);
+      const host = parsedUrl.hostname.replace(/^www\./, "");
+      if (!X_HOSTS.has(host)) return null;
+
+      const parts = parsedUrl.pathname.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+      const username = normalizeUsername(parts[0]);
+      if (!username || RESERVED_PATHS.has(username)) return null;
+      if (parts[1] !== "status" || !parts[2]) return null;
+
+      return {
+        username,
+        url: parsedUrl.href
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function parseTimeElement(timeElement, now = new Date()) {
+    const datetime = timeElement.getAttribute("datetime");
+    if (datetime) {
+      const parsedDate = new Date(datetime);
+      if (!Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() <= now.getTime() + DAY_MS) {
+        return parsedDate;
+      }
+    }
+
+    const parsedTextDate = parseXTimeText(timeElement.textContent, now);
+    if (parsedTextDate && parsedTextDate.getTime() <= now.getTime() + DAY_MS) {
+      return parsedTextDate;
+    }
+
+    return null;
+  }
+
+  function isPinnedArticle(article) {
+    const socialContext = textOf(article.querySelector('[data-testid="socialContext"]')).toLowerCase();
+    const articleText = textOf(article).toLowerCase();
+    return (
+      socialContext.includes("pinned") ||
+      socialContext.includes("置顶") ||
+      articleText.startsWith("pinned") ||
+      articleText.startsWith("置顶")
+    );
+  }
+
   function getVisibleTweetArticles() {
     return Array.from(document.querySelectorAll('article[data-testid="tweet"]')).filter((article) => {
       const rect = article.getBoundingClientRect();
@@ -248,50 +296,68 @@
     });
   }
 
-  function parseLatestVisiblePostTime() {
+  function hasProfileHeaderForUsername(username) {
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) return false;
+
+    const userNameElement = document.querySelector('[data-testid="UserName"]');
+    if (!userNameElement) return false;
+
+    return textOf(userNameElement).toLowerCase().includes(`@${normalizedUsername}`);
+  }
+
+  function parseLatestVisiblePostTime(profileUsername = getProfileUsername()) {
+    const normalizedUsername = normalizeUsername(profileUsername);
+    if (!normalizedUsername) return null;
+
     const articles = getVisibleTweetArticles();
+    const candidates = [];
+    const now = new Date();
 
     for (const article of articles) {
-      const articleText = textOf(article).toLowerCase();
-      if (articleText.includes("pinned")) continue;
+      if (isPinnedArticle(article)) continue;
 
-      const timeElement = article.querySelector("time");
-      if (!timeElement) continue;
+      for (const timeElement of Array.from(article.querySelectorAll("time"))) {
+        const statusLink = timeElement.closest("a[href]");
+        const statusLinkInfo = getStatusLinkInfo(statusLink?.getAttribute("href"));
+        if (!statusLinkInfo || statusLinkInfo.username !== normalizedUsername) continue;
 
-      const datetime = timeElement.getAttribute("datetime");
-      if (datetime) {
-        const parsedDate = new Date(datetime);
-        if (!Number.isNaN(parsedDate.getTime())) {
-          return {
-            lastPostAt: parsedDate.toISOString(),
-            sourceText: timeElement.textContent || datetime
-          };
-        }
-      }
+        const parsedDate = parseTimeElement(timeElement, now);
+        if (!parsedDate) continue;
 
-      const parsedTextDate = parseXTimeText(timeElement.textContent);
-      if (parsedTextDate) {
-        return {
-          lastPostAt: parsedTextDate.toISOString(),
-          sourceText: timeElement.textContent || ""
-        };
+        candidates.push({
+          lastPostAt: parsedDate.toISOString(),
+          sourceText: timeElement.textContent || timeElement.getAttribute("datetime") || "",
+          statusUrl: statusLinkInfo.url
+        });
       }
     }
 
-    return null;
+    candidates.sort((a, b) => new Date(b.lastPostAt).getTime() - new Date(a.lastPostAt).getTime());
+    return candidates[0] || null;
   }
 
-  function scanProfileActivity() {
+  function scanProfileActivity(expectedUsername = "") {
     if (!isProfilePage(location.href)) {
       return {
         ok: false,
         code: "not_profile_page",
-        username: "",
+        username: normalizeUsername(expectedUsername),
         message: "当前页面不是 X 账户主页，请手动打开某个账户主页后再读取。"
       };
     }
 
     const username = getProfileUsername(location.href);
+    const expected = normalizeUsername(expectedUsername);
+    if (expected && username !== expected) {
+      return {
+        ok: false,
+        code: "profile_loading",
+        username: expected,
+        message: "目标主页仍在切换中，暂不保存旧页面结果。"
+      };
+    }
+
     const accessState = detectProfileAccessState();
     if (!accessState.ok) {
       return {
@@ -302,7 +368,16 @@
       };
     }
 
-    const latestPost = parseLatestVisiblePostTime();
+    const latestPost = parseLatestVisiblePostTime(username);
+    if (expected && !latestPost && !hasProfileHeaderForUsername(expected)) {
+      return {
+        ok: false,
+        code: "profile_loading",
+        username: expected,
+        message: "目标主页内容还没有稳定加载，暂不保存旧页面结果。"
+      };
+    }
+
     if (!latestPost) {
       return {
         ok: true,
@@ -321,12 +396,15 @@
       lastPostAt: latestPost.lastPostAt,
       inactiveDays: calculateInactiveDays(latestPost.lastPostAt),
       sourceText: latestPost.sourceText,
-      message: "已读取当前主页可见的最近公开发帖时间。"
+      statusUrl: latestPost.statusUrl,
+      message: "已读取当前主页中属于该账号的最新公开发帖时间。"
     };
   }
 
   window.XFollowCleanerProfileParser = {
+    version: PARSER_VERSION,
     isProfilePage,
+    getStatusLinkInfo,
     parseLatestVisiblePostTime,
     parseXTimeText,
     calculateInactiveDays,

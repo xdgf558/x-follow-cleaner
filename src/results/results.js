@@ -252,24 +252,43 @@ function randomDelaySeconds(min, max) {
   return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
 }
 
-async function waitForTabComplete(tabId, timeoutMs = 30000) {
+function tabMatchesUsername(tab, username) {
+  const expectedUsername = normalizeSearch(username);
+  if (!expectedUsername) return true;
+
+  try {
+    const tabUrl = new URL(tab?.url || "");
+    const pathUsername = normalizeSearch(decodeURIComponent(tabUrl.pathname.split("/").filter(Boolean)[0] || ""));
+    return pathUsername === expectedUsername;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForTabComplete(tabId, username, timeoutMs = 30000) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (tab?.status === "complete") return;
+  if (tab?.status === "complete" && tabMatchesUsername(tab, username)) return;
 
   await new Promise((resolve, reject) => {
+    let settled = false;
     const timeoutId = window.setTimeout(() => {
       cleanup();
       reject(new Error("主页加载超时，请稍后重试。"));
     }, timeoutMs);
 
     function cleanup() {
+      settled = true;
       window.clearTimeout(timeoutId);
       chrome.tabs.onUpdated.removeListener(handleUpdated);
       chrome.tabs.onRemoved.removeListener(handleRemoved);
     }
 
-    function handleUpdated(updatedTabId, changeInfo) {
-      if (updatedTabId === tabId && changeInfo.status === "complete") {
+    async function handleUpdated(updatedTabId, changeInfo) {
+      if (settled || updatedTabId !== tabId) return;
+      if (changeInfo.status !== "complete" && !changeInfo.url) return;
+
+      const currentTab = await chrome.tabs.get(tabId).catch(() => null);
+      if (currentTab?.status === "complete" && tabMatchesUsername(currentTab, username)) {
         cleanup();
         resolve();
       }
@@ -303,7 +322,7 @@ async function openProfileForBatch(account) {
   return tab.id;
 }
 
-async function injectProfileParser(tabId) {
+async function injectProfileParser(tabId, expectedUsername = "") {
   await chrome.scripting.executeScript({
     target: { tabId },
     files: ["src/content/profileActivityParser.js"]
@@ -311,21 +330,54 @@ async function injectProfileParser(tabId) {
 
   const [injectionResult] = await chrome.scripting.executeScript({
     target: { tabId },
-    func: () => {
-      return window.XFollowCleanerProfileParser?.scanProfileActivity?.() || {
+    func: (username) => {
+      return window.XFollowCleanerProfileParser?.scanProfileActivity?.(username) || {
         ok: false,
         code: "parser_missing",
         message: "主页读取脚本未能加载，请刷新页面后再试。"
       };
-    }
+    },
+    args: [expectedUsername]
   });
 
   return injectionResult?.result;
 }
 
+function isProfileLoadingResult(result) {
+  return result?.code === "profile_loading";
+}
+
+async function readStableProfileActivity(tabId, username, timeoutMs = 18000) {
+  const startedAt = Date.now();
+  let lastResult = null;
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    if (state.batch.stopRequested) {
+      throw new Error("低频检查已暂停。");
+    }
+
+    const result = await injectProfileParser(tabId, username);
+    if (!isProfileLoadingResult(result)) {
+      return result;
+    }
+
+    lastResult = result;
+    await sleep(1500);
+  }
+
+  return {
+    ok: true,
+    code: "unknown",
+    username,
+    lastPostAt: "",
+    inactiveDays: null,
+    message: lastResult?.message || "主页已打开，但没有稳定读取到属于该账号的公开帖子时间。"
+  };
+}
+
 async function saveProfileResult(account, result) {
   const checkedAt = new Date().toISOString();
-  const username = result?.username || account.username;
+  const username = account.username;
   let patch = {
     profileUrl: account.profileUrl || `https://x.com/${username}`,
     lastCheckedAt: checkedAt,
@@ -410,10 +462,10 @@ async function runBatchCheck() {
       renderBatchPanel(`正在检查 ${index + 1}/${candidates.length}：@${account.username}。运行中会逐个打开主页。`);
 
       const tabId = await openProfileForBatch(account);
-      await waitForTabComplete(tabId);
-      await sleep(3500);
+      await waitForTabComplete(tabId, account.username);
+      await sleep(2500);
 
-      const result = await injectProfileParser(tabId);
+      const result = await readStableProfileActivity(tabId, account.username);
       await saveProfileResult(account, result);
       await incrementBatchUsage(1);
       await loadAccounts();
