@@ -42,6 +42,14 @@
           <strong id="summaryUnknown">0</strong>
         </article>
         <article>
+          <span data-i18n="followsYouTab">关注你</span>
+          <strong id="summaryFollowsYou">0</strong>
+        </article>
+        <article>
+          <span data-i18n="suspectedUnfollowTab">疑似取关</span>
+          <strong id="summarySuspectedUnfollow">0</strong>
+        </article>
+        <article>
           <span data-i18n="whitelistTab">白名单</span>
           <strong id="summaryWhitelisted">0</strong>
         </article>
@@ -77,6 +85,9 @@
         <button class="tab-button" type="button" data-filter="review" data-i18n="reviewTab">待复核</button>
         <button class="tab-button" type="button" data-filter="active" data-i18n="activeTab">近期活跃</button>
         <button class="tab-button" type="button" data-filter="unknown" data-i18n="unknownTab">无法判断</button>
+        <button class="tab-button" type="button" data-filter="followsYou" data-i18n="followsYouTab">关注你</button>
+        <button class="tab-button" type="button" data-filter="notFollowingYou" data-i18n="notFollowingYouTab">未关注你</button>
+        <button class="tab-button" type="button" data-filter="suspectedUnfollow" data-i18n="suspectedUnfollowTab">疑似取关</button>
         <button class="tab-button" type="button" data-filter="whitelisted" data-i18n="whitelistTab">白名单</button>
         <button class="tab-button" type="button" data-filter="processed" data-i18n="processedTab">已处理</button>
       </nav>
@@ -104,6 +115,14 @@
               <div>
                 <dt data-i18n="confirmation">二次确认</dt>
                 <dd class="confirmation-count"></dd>
+              </div>
+              <div>
+                <dt data-i18n="mutualFollow">是否关注你</dt>
+                <dd class="mutual-follow"></dd>
+              </div>
+              <div>
+                <dt data-i18n="mutualFollowCheckedAt">互关检查时间</dt>
+                <dd class="mutual-follow-checked-at"></dd>
               </div>
               <div>
                 <dt data-i18n="checkedAt">检查时间</dt>

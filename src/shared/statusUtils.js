@@ -1,4 +1,4 @@
-import { AccountStatus } from "./constants.js";
+import { AccountStatus, MutualFollowStatus } from "./constants.js";
 import { diffDays } from "./dateUtils.js";
 
 function normalizeLanguage(language) {
@@ -103,18 +103,57 @@ export function accountMatchesFilter(account, filter, settings = {}) {
   }
   if (filter === "whitelisted") return Boolean(account?.whitelisted);
   if (filter === "processed") return Boolean(account?.processed);
+  if (filter === "followsYou") return account?.mutualFollowStatus === MutualFollowStatus.FOLLOWS_YOU;
+  if (filter === "notFollowingYou") return account?.mutualFollowStatus === MutualFollowStatus.NOT_FOLLOWING_YOU;
+  if (filter === "suspectedUnfollow") return Boolean(account?.suspectedUnfollow);
 
   return true;
 }
 
+function buildMutualFollowPatch(account = {}, result = {}, checkedAt = new Date().toISOString()) {
+  if (!Object.prototype.hasOwnProperty.call(result || {}, "mutualFollowStatus")) {
+    return {};
+  }
+
+  const nextStatus = result.mutualFollowStatus || MutualFollowStatus.UNKNOWN;
+  if (nextStatus === MutualFollowStatus.UNKNOWN) {
+    return {
+      mutualFollowStatus: account?.mutualFollowStatus || MutualFollowStatus.UNKNOWN,
+      followsYouLastCheckedAt: checkedAt,
+      followsYouSourceText: result.followsYouSourceText || "",
+      suspectedUnfollow: Boolean(account?.suspectedUnfollow),
+      suspectedUnfollowAt: account?.suspectedUnfollowAt || "",
+      errorMessage: result?.message || ""
+    };
+  }
+
+  const wasFollowingYou = account?.mutualFollowStatus === MutualFollowStatus.FOLLOWS_YOU;
+  const isNotFollowingYou = nextStatus === MutualFollowStatus.NOT_FOLLOWING_YOU;
+  const suspectedUnfollow = isNotFollowingYou
+    ? Boolean(account?.suspectedUnfollow || wasFollowingYou)
+    : false;
+
+  return {
+    mutualFollowStatus: nextStatus,
+    followsYouLastCheckedAt: checkedAt,
+    followsYouSourceText: result.followsYouSourceText || "",
+    suspectedUnfollow,
+    suspectedUnfollowAt: suspectedUnfollow
+      ? account?.suspectedUnfollowAt || checkedAt
+      : ""
+  };
+}
+
 export function buildProfileActivityPatch(account = {}, result = {}, settings = {}, checkedAt = new Date().toISOString()) {
   const username = String(account.username || result.username || "").replace(/^@/, "").trim().toLowerCase();
+  const mutualFollowPatch = buildMutualFollowPatch(account, result, checkedAt);
   const patch = {
     profileUrl: account.profileUrl || `https://x.com/${username}`,
     lastCheckedAt: checkedAt,
     lastSourceText: result?.sourceText || "",
     lastStatusUrl: result?.statusUrl || "",
-    errorMessage: result?.message || ""
+    errorMessage: result?.message || "",
+    ...mutualFollowPatch
   };
 
   if (result?.ok && result.lastPostAt) {

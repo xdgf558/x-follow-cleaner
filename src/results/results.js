@@ -1,6 +1,6 @@
 import { getAccounts, getBatchState, getSettings, summarizeAccounts, updateAccount } from "../shared/storage.js";
 import { accountsToCsv, createExportFilename, downloadTextFile } from "../shared/csvUtils.js";
-import { AccountStatus, BatchMode, BatchStatus, DEFAULT_BATCH_STATE, STORAGE_KEYS } from "../shared/constants.js";
+import { AccountStatus, BatchMode, BatchStatus, DEFAULT_BATCH_STATE, MutualFollowStatus, STORAGE_KEYS } from "../shared/constants.js";
 import { applyTranslations, formatMessage, getText } from "../shared/i18n.js";
 import {
   accountMatchesFilter,
@@ -24,6 +24,8 @@ const elements = {
   summaryReview: document.querySelector("#summaryReview"),
   summaryActive: document.querySelector("#summaryActive"),
   summaryUnknown: document.querySelector("#summaryUnknown"),
+  summaryFollowsYou: document.querySelector("#summaryFollowsYou"),
+  summarySuspectedUnfollow: document.querySelector("#summarySuspectedUnfollow"),
   summaryWhitelisted: document.querySelector("#summaryWhitelisted"),
   summaryProcessed: document.querySelector("#summaryProcessed"),
   searchInput: document.querySelector("#searchInput"),
@@ -88,6 +90,13 @@ function formatConfirmation(account) {
   return formatMessage(currentText.confirmationProgress, { count });
 }
 
+function formatMutualFollow(account) {
+  if (account.suspectedUnfollow) return currentText.suspectedUnfollow;
+  if (account.mutualFollowStatus === MutualFollowStatus.FOLLOWS_YOU) return currentText.followsYou;
+  if (account.mutualFollowStatus === MutualFollowStatus.NOT_FOLLOWING_YOU) return currentText.notFollowingYou;
+  return currentText.mutualUnknown;
+}
+
 function isBatchRunning() {
   return state.batch.status === BatchStatus.RUNNING;
 }
@@ -99,6 +108,8 @@ function updateSummary() {
   elements.summaryReview.textContent = String(summary.review);
   elements.summaryActive.textContent = String(summary.active);
   elements.summaryUnknown.textContent = String(summary.unknown);
+  elements.summaryFollowsYou.textContent = String(summary.followsYou);
+  elements.summarySuspectedUnfollow.textContent = String(summary.suspectedUnfollow);
   elements.summaryWhitelisted.textContent = String(summary.whitelisted);
   elements.summaryProcessed.textContent = String(summary.processed);
 }
@@ -160,6 +171,8 @@ function renderAccount(account) {
   const lastPost = fragment.querySelector(".last-post");
   const inactiveDays = fragment.querySelector(".inactive-days");
   const confirmationCount = fragment.querySelector(".confirmation-count");
+  const mutualFollow = fragment.querySelector(".mutual-follow");
+  const mutualFollowCheckedAt = fragment.querySelector(".mutual-follow-checked-at");
   const checkedAt = fragment.querySelector(".checked-at");
   const sourceText = fragment.querySelector(".source-text");
   const evidenceLink = fragment.querySelector(".evidence-link");
@@ -178,6 +191,9 @@ function renderAccount(account) {
   lastPost.textContent = formatDate(account.lastPostAt);
   inactiveDays.textContent = formatInactiveDays(account.inactiveDays);
   confirmationCount.textContent = formatConfirmation(account);
+  mutualFollow.textContent = formatMutualFollow(account);
+  mutualFollow.className = `mutual-follow ${account.suspectedUnfollow ? "mutual-warning" : ""}`.trim();
+  mutualFollowCheckedAt.textContent = formatDateTime(account.followsYouLastCheckedAt);
   checkedAt.textContent = formatDateTime(account.lastCheckedAt);
   sourceText.textContent = account.lastSourceText || currentText.noEvidence;
   if (account.lastStatusUrl) {

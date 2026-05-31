@@ -32,6 +32,12 @@ export const BatchMode = {
   SINGLE: "single"
 };
 
+export const MutualFollowStatus = {
+  FOLLOWS_YOU: "followsYou",
+  NOT_FOLLOWING_YOU: "notFollowingYou",
+  UNKNOWN: "unknown"
+};
+
 export const DEFAULT_BATCH_STATE = {
   status: BatchStatus.IDLE,
   mode: "",

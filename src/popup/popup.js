@@ -8,7 +8,7 @@ import {
   updateAccount,
   upsertAccounts
 } from "../shared/storage.js";
-import { AccountStatus } from "../shared/constants.js";
+import { AccountStatus, MutualFollowStatus } from "../shared/constants.js";
 import { getProfileUsernameFromUrl, isFollowingUrl, isProfileUrl, isXUrl } from "../shared/domUtils.js";
 import { applyTranslations, formatMessage, getText } from "../shared/i18n.js";
 import { buildProfileActivityPatch, getEffectiveAccount } from "../shared/statusUtils.js";
@@ -105,6 +105,13 @@ function isFollowingTab(tab) {
 
 function isProfileTab(tab) {
   return isProfileUrl(tab?.url);
+}
+
+function formatMutualFollowMessage(patch) {
+  if (patch.suspectedUnfollow) return currentText.suspectedUnfollow;
+  if (patch.mutualFollowStatus === MutualFollowStatus.FOLLOWS_YOU) return currentText.followsYou;
+  if (patch.mutualFollowStatus === MutualFollowStatus.NOT_FOLLOWING_YOU) return currentText.notFollowingYou;
+  return "";
 }
 
 function getUsernameFromProfileTab(tab) {
@@ -276,6 +283,11 @@ async function readProfileActivity() {
         status: patch.status === AccountStatus.UNKNOWN ? currentText.resultUnknown : currentText.resultError,
         message: patch.errorMessage || currentText.noEvidence
       });
+    }
+
+    const mutualMessage = formatMutualFollowMessage(patch);
+    if (mutualMessage) {
+      message = `${message} ${currentText.mutualFollow}: ${mutualMessage}`;
     }
 
     await saveTaskState({

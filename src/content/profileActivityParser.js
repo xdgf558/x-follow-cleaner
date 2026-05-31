@@ -1,7 +1,12 @@
 (function initializeProfileActivityParser() {
-  const PARSER_VERSION = "0.2.1";
+  const PARSER_VERSION = "0.5.0";
   if (window.XFollowCleanerProfileParser?.version === PARSER_VERSION) return;
   const DAY_MS = 24 * 60 * 60 * 1000;
+  const MutualFollowStatus = {
+    FOLLOWS_YOU: "followsYou",
+    NOT_FOLLOWING_YOU: "notFollowingYou",
+    UNKNOWN: "unknown"
+  };
   const X_HOSTS = new Set(["x.com", "twitter.com"]);
   const RESERVED_PATHS = new Set([
     "home",
@@ -306,6 +311,73 @@
     return textOf(userNameElement).toLowerCase().includes(`@${normalizedUsername}`);
   }
 
+  function getProfileHeaderRoot(username) {
+    const normalizedUsername = normalizeUsername(username);
+    const userNameElement = document.querySelector('[data-testid="UserName"]');
+    if (!normalizedUsername || !userNameElement) return null;
+
+    let current = userNameElement;
+    let bestMatch = null;
+
+    for (let depth = 0; depth < 8 && current; depth += 1) {
+      const text = textOf(current).toLowerCase();
+      const rect = current.getBoundingClientRect();
+      if (text.includes(`@${normalizedUsername}`) && rect.width > 0 && rect.height > 0) {
+        bestMatch = current;
+        if (
+          text.includes("following") ||
+          text.includes("followers") ||
+          text.includes("joined") ||
+          text.includes("跟随中") ||
+          text.includes("跟隨中") ||
+          text.includes("关注者") ||
+          text.includes("跟隨者") ||
+          text.includes("已加入")
+        ) {
+          return current;
+        }
+      }
+      current = current.parentElement;
+    }
+
+    return bestMatch;
+  }
+
+  function findFollowsYouPhrase(text) {
+    const cleanText = textOf({ textContent: text });
+    const lowerText = cleanText.toLowerCase();
+    const phrases = [
+      { test: /\bfollows you(?: back)?\b/i, label: "Follows you" },
+      { test: /关注了你|關注了你|关注你|關注你|跟随你|跟隨你/, label: "跟随你" }
+    ];
+
+    return phrases.find((phrase) => phrase.test.test(lowerText) || phrase.test.test(cleanText))?.label || "";
+  }
+
+  function parseMutualFollowStatus(profileUsername = getProfileUsername()) {
+    const headerRoot = getProfileHeaderRoot(profileUsername);
+    if (!headerRoot) {
+      return {
+        mutualFollowStatus: MutualFollowStatus.UNKNOWN,
+        followsYouSourceText: ""
+      };
+    }
+
+    const headerText = textOf(headerRoot);
+    const followsYouPhrase = findFollowsYouPhrase(headerText);
+    if (followsYouPhrase) {
+      return {
+        mutualFollowStatus: MutualFollowStatus.FOLLOWS_YOU,
+        followsYouSourceText: followsYouPhrase
+      };
+    }
+
+    return {
+      mutualFollowStatus: MutualFollowStatus.NOT_FOLLOWING_YOU,
+      followsYouSourceText: "主页头部未显示 follows-you 标记。"
+    };
+  }
+
   function parseLatestVisiblePostTime(profileUsername = getProfileUsername()) {
     const normalizedUsername = normalizeUsername(profileUsername);
     if (!normalizedUsername) return null;
@@ -369,6 +441,7 @@
     }
 
     const latestPost = parseLatestVisiblePostTime(username);
+    const mutualFollow = parseMutualFollowStatus(username);
     if (expected && !latestPost && !hasProfileHeaderForUsername(expected)) {
       return {
         ok: false,
@@ -385,6 +458,7 @@
         username,
         lastPostAt: "",
         inactiveDays: null,
+        ...mutualFollow,
         message: accessState.message || "当前可见主页内容中没有找到公开帖子时间；可能没有公开帖子，或 X DOM 结构已变化。"
       };
     }
@@ -397,6 +471,7 @@
       inactiveDays: calculateInactiveDays(latestPost.lastPostAt),
       sourceText: latestPost.sourceText,
       statusUrl: latestPost.statusUrl,
+      ...mutualFollow,
       message: "已读取当前主页中属于该账号的最新公开发帖时间。"
     };
   }
@@ -406,6 +481,7 @@
     isProfilePage,
     getStatusLinkInfo,
     parseLatestVisiblePostTime,
+    parseMutualFollowStatus,
     parseXTimeText,
     calculateInactiveDays,
     detectProfileAccessState,

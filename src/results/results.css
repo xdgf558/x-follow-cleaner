@@ -258,6 +258,10 @@ button:hover {
   font-weight: 700;
 }
 
+.mutual-warning {
+  color: #b91c1c;
+}
+
 .status-badge {
   flex: 0 0 auto;
   padding: 4px 8px;

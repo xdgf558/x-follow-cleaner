@@ -3,6 +3,7 @@ import {
   DEFAULT_BATCH_STATE,
   DEFAULT_SETTINGS,
   DEFAULT_TASK_STATE,
+  MutualFollowStatus,
   STORAGE_KEYS
 } from "./constants.js";
 
@@ -112,6 +113,11 @@ export async function updateAccount(username, patch) {
       inactiveLastConfirmedAt: "",
       lastSourceText: "",
       lastStatusUrl: "",
+      mutualFollowStatus: MutualFollowStatus.UNKNOWN,
+      followsYouLastCheckedAt: "",
+      followsYouSourceText: "",
+      suspectedUnfollow: false,
+      suspectedUnfollowAt: "",
       status: AccountStatus.PENDING,
       errorMessage: "",
       processed: false,
@@ -251,6 +257,9 @@ export function summarizeAccounts(accounts) {
     active: list.filter((account) => account.status === AccountStatus.ACTIVE).length,
     unknown: list.filter((account) => account.status === AccountStatus.UNKNOWN || account.status === AccountStatus.ERROR).length,
     whitelisted: list.filter((account) => account.whitelisted).length,
-    processed: list.filter((account) => account.processed).length
+    processed: list.filter((account) => account.processed).length,
+    followsYou: list.filter((account) => account.mutualFollowStatus === MutualFollowStatus.FOLLOWS_YOU).length,
+    notFollowingYou: list.filter((account) => account.mutualFollowStatus === MutualFollowStatus.NOT_FOLLOWING_YOU).length,
+    suspectedUnfollow: list.filter((account) => account.suspectedUnfollow).length
   };
 }

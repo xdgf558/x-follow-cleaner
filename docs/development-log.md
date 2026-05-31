@@ -1,5 +1,54 @@
 # Development Log
 
+## 功能记录：互关状态和疑似取关
+
+完成时间：2026-05-31
+
+阶段目标：新增对方是否关注你、以及历史变化后的疑似取关提示，同时保持本地、只读、低频和不自动操作。
+
+完成内容：
+1. 主页解析器新增“跟随你 / Follows you”标记读取。
+2. 账户数据新增 `mutualFollowStatus`、`followsYouLastCheckedAt`、`followsYouSourceText`、`suspectedUnfollow` 和 `suspectedUnfollowAt`。
+3. 结果页新增“关注你”“未关注你”“疑似取关”筛选和统计。
+4. 结果行新增互关状态和互关检查时间。
+5. 手动读取主页、单个重新检查、低频自动检查都会同步更新互关状态。
+6. CSV 导出新增互关字段。
+7. README、stage-plan 和 test-checklist 已更新。
+8. 版本号更新到 `0.5.0`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/development-log.md`
+5. `docs/stage-plan.md`
+6. `docs/test-checklist.md`
+7. `src/content/profileActivityParser.js`
+8. `src/popup/popup.js`
+9. `src/results/results.html`
+10. `src/results/results.css`
+11. `src/results/results.js`
+12. `src/shared/constants.js`
+13. `src/shared/csvUtils.js`
+14. `src/shared/i18n.js`
+15. `src/shared/statusUtils.js`
+16. `src/shared/storage.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. 已用 Node 校验“第一次未关注你不标记疑似取关、从关注你变为未关注你才标记疑似取关”的状态更新逻辑。
+
+未完成内容：
+1. 真实 X 页面中不同语言下“跟随你 / Follows you”标记仍需人工回归验证。
+
+发现问题：
+1. 当前功能只能证明“当前页面是否读到对方关注你”，不能把第一次读到“未关注你”直接等同于取关。
+
+下一阶段注意事项：
+1. “疑似取关”必须继续基于历史状态变化，不要改成一次读取就下确定结论。
+
+是否允许进入下一阶段：是
+
 ## 修复记录：低频自动检查后台队列
 
 完成时间：2026-05-31
