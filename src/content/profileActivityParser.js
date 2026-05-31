@@ -1,5 +1,5 @@
 (function initializeProfileActivityParser() {
-  const PARSER_VERSION = "0.5.0";
+  const PARSER_VERSION = "0.5.1";
   if (window.XFollowCleanerProfileParser?.version === PARSER_VERSION) return;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const MutualFollowStatus = {
@@ -301,6 +301,32 @@
     });
   }
 
+  function hasExplicitEmptyTimelineMessage() {
+    const pageText = textOf(document.body).toLowerCase();
+    const emptyPhrases = [
+      "hasn't posted",
+      "hasn’t posted",
+      "no posts yet",
+      "还没有发布",
+      "尚未发布",
+      "没有发布任何",
+      "沒有發佈",
+      "尚未發佈",
+      "沒有任何貼文"
+    ];
+
+    return emptyPhrases.some((phrase) => pageText.includes(phrase));
+  }
+
+  function isTimelineReadyForUnknown() {
+    if (hasExplicitEmptyTimelineMessage()) return true;
+
+    const articles = getVisibleTweetArticles();
+    if (articles.length === 0) return false;
+
+    return articles.some((article) => !isPinnedArticle(article));
+  }
+
   function hasProfileHeaderForUsername(username) {
     const normalizedUsername = normalizeUsername(username);
     if (!normalizedUsername) return false;
@@ -448,6 +474,16 @@
         code: "profile_loading",
         username: expected,
         message: "目标主页内容还没有稳定加载，暂不保存旧页面结果。"
+      };
+    }
+
+    if (!latestPost && accessState.code !== "protected" && !isTimelineReadyForUnknown()) {
+      return {
+        ok: false,
+        code: "profile_loading",
+        username: expected || username,
+        ...mutualFollow,
+        message: "主页头部已加载，但帖子时间线仍在加载中，继续等待最近发帖时间。"
       };
     }
 

@@ -159,6 +159,40 @@ async function injectProfileParser(tabId, expectedUsername = "") {
   return injectionResult?.result;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isProfileLoadingResult(result) {
+  return result?.code === "profile_loading";
+}
+
+async function readStableProfileActivity(tabId, username, timeoutMs = 18000) {
+  const startedAt = Date.now();
+  let lastResult = null;
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const result = await injectProfileParser(tabId, username);
+    if (!isProfileLoadingResult(result)) {
+      return result;
+    }
+
+    lastResult = result;
+    await delay(1500);
+  }
+
+  return {
+    ok: true,
+    code: "unknown",
+    username,
+    lastPostAt: "",
+    inactiveDays: null,
+    mutualFollowStatus: lastResult?.mutualFollowStatus,
+    followsYouSourceText: lastResult?.followsYouSourceText || "",
+    message: lastResult?.message || currentText.noEvidence
+  };
+}
+
 async function scanCurrentPage() {
   elements.scanCurrentPage.disabled = true;
   elements.scanCurrentPage.textContent = currentText.scanning;
@@ -252,7 +286,7 @@ async function readProfileActivity() {
     }
 
     const expectedUsername = getUsernameFromProfileTab(tab);
-    const result = await injectProfileParser(tab.id, expectedUsername);
+    const result = await readStableProfileActivity(tab.id, expectedUsername);
     const username = result?.username || expectedUsername;
     const settings = await getSettings();
     const checkedAt = new Date().toISOString();

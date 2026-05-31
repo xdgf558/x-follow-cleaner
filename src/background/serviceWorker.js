@@ -216,6 +216,8 @@ async function readStableProfileActivity(tabId, username, text, timeoutMs = 1800
     username,
     lastPostAt: "",
     inactiveDays: null,
+    mutualFollowStatus: lastResult?.mutualFollowStatus,
+    followsYouSourceText: lastResult?.followsYouSourceText || "",
     message: lastResult?.message || text.noEvidence
   };
 }
