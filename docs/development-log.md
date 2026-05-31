@@ -1,5 +1,39 @@
 # Development Log
 
+## 修复记录：结果页语言切换异常
+
+完成时间：2026-05-31
+
+阶段目标：修复结果页显示“Cannot set properties of null (setting 'lang')”导致账户列表无法渲染的问题。
+
+完成内容：
+1. 修复 `applyTranslations` 在 DocumentFragment 或缺少 `documentElement` 的上下文中直接设置 `lang` 的异常。
+2. 保留页面级语言设置，同时让片段翻译跳过不存在的 `documentElement`。
+3. 版本号更新到 `0.3.2`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `docs/development-log.md`
+4. `src/shared/i18n.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+2. 已用 Node 模拟缺少 `documentElement` 的翻译上下文，确认不会再抛出 `Cannot set properties of null`。
+3. `npm run package` 已运行并生成 `dist/x-follow-cleaner-v0.3.2.zip`。
+4. `unzip -l dist/x-follow-cleaner-v0.3.2.zip` 已确认 zip 包含 `LICENSE`。
+
+未完成内容：
+1. GitHub Release 资产待上传。
+
+发现问题：
+1. 该错误由 v0.3.0 引入的双语翻译工具在片段渲染时未做空值保护导致。
+
+下一阶段注意事项：
+1. 结果页账户行模板是 DocumentFragment，类似工具函数必须兼容片段渲染。
+
+是否允许进入下一阶段：是
+
 ## 开源记录：MIT License
 
 完成时间：2026-05-31

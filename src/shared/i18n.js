@@ -297,8 +297,13 @@ export function getText(settingsOrLanguage = DEFAULT_LANGUAGE) {
 }
 
 export function applyTranslations(root, text, language = DEFAULT_LANGUAGE) {
-  const doc = root.ownerDocument || root;
-  doc.documentElement.lang = normalizeLanguage(language) === "en" ? "en" : "zh-CN";
+  const doc = root?.nodeType === 9 ? root : root?.ownerDocument;
+  const documentElement = doc?.documentElement || root?.documentElement;
+  if (documentElement) {
+    documentElement.lang = normalizeLanguage(language) === "en" ? "en" : "zh-CN";
+  }
+
+  if (!root?.querySelectorAll) return;
 
   root.querySelectorAll("[data-i18n]").forEach((element) => {
     const key = element.dataset.i18n;
