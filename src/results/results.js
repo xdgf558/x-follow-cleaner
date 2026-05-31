@@ -1,10 +1,9 @@
-import { getAccounts, getBatchUsage, getSettings, incrementBatchUsage, summarizeAccounts, updateAccount } from "../shared/storage.js";
+import { getAccounts, getBatchState, getSettings, summarizeAccounts, updateAccount } from "../shared/storage.js";
 import { accountsToCsv, createExportFilename, downloadTextFile } from "../shared/csvUtils.js";
-import { AccountStatus } from "../shared/constants.js";
+import { AccountStatus, BatchMode, BatchStatus, DEFAULT_BATCH_STATE, STORAGE_KEYS } from "../shared/constants.js";
 import { applyTranslations, formatMessage, getText } from "../shared/i18n.js";
 import {
   accountMatchesFilter,
-  buildProfileActivityPatch,
   getEffectiveAccount,
   getDisplayStatus,
   getStatusClass,
@@ -16,12 +15,7 @@ const state = {
   settings: {},
   filter: "all",
   search: "",
-  batch: {
-    running: false,
-    stopRequested: false,
-    tabId: null,
-    message: ""
-  }
+  batch: { ...DEFAULT_BATCH_STATE }
 };
 
 const elements = {
@@ -92,6 +86,10 @@ function formatConfirmation(account) {
 
   const count = Math.min(2, Math.max(0, Number(account.inactiveConfirmationCount || 0)));
   return formatMessage(currentText.confirmationProgress, { count });
+}
+
+function isBatchRunning() {
+  return state.batch.status === BatchStatus.RUNNING;
 }
 
 function updateSummary() {
@@ -192,7 +190,7 @@ function renderAccount(account) {
   } else {
     evidenceLink.textContent = currentText.noEvidence;
   }
-  recheckButton.disabled = state.batch.running;
+  recheckButton.disabled = isBatchRunning();
   processedButton.textContent = account.processed ? currentText.unmarkProcessed : currentText.markProcessed;
   whitelistButton.textContent = account.whitelisted ? currentText.removeWhitelist : currentText.addWhitelist;
 
@@ -254,15 +252,19 @@ function getUnknownCandidates() {
 
 function renderBatchPanel(message = null) {
   if (message !== null) {
-    state.batch.message = message;
+    state.batch = {
+      ...state.batch,
+      message
+    };
   }
 
   const enabled = Boolean(state.settings.enableExperimentalBatchCheck);
+  const running = isBatchRunning();
 
-  elements.startBatchCheck.disabled = state.batch.running || !enabled;
-  elements.recheckInactive.disabled = state.batch.running || !enabled;
-  elements.recheckUnknown.disabled = state.batch.running || !enabled;
-  elements.pauseBatchCheck.disabled = !state.batch.running;
+  elements.startBatchCheck.disabled = running || !enabled;
+  elements.recheckInactive.disabled = running || !enabled;
+  elements.recheckUnknown.disabled = running || !enabled;
+  elements.pauseBatchCheck.disabled = !running;
 
   if (state.batch.message) {
     elements.batchStatus.textContent = state.batch.message;
@@ -289,9 +291,10 @@ function renderBatchPanel(message = null) {
 }
 
 async function loadAccounts() {
-  const [accounts, settings] = await Promise.all([getAccounts(), getSettings()]);
+  const [accounts, settings, batchState] = await Promise.all([getAccounts(), getSettings(), getBatchState()]);
   state.accounts = accounts;
   state.settings = settings;
+  state.batch = batchState;
   currentText = getText(settings);
   applyTranslations(document, currentText, settings.appLanguage);
   renderAccounts();
@@ -328,284 +331,63 @@ function exportJson() {
   );
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function randomDelaySeconds(min, max) {
-  const safeMin = Math.max(15, Number(min || 15));
-  const safeMax = Math.max(safeMin, Number(max || 30));
-  return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
-}
-
-function tabMatchesUsername(tab, username) {
-  const expectedUsername = normalizeSearch(username);
-  if (!expectedUsername) return true;
-
-  try {
-    const tabUrl = new URL(tab?.url || "");
-    const pathUsername = normalizeSearch(decodeURIComponent(tabUrl.pathname.split("/").filter(Boolean)[0] || ""));
-    return pathUsername === expectedUsername;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForTabComplete(tabId, username, timeoutMs = 30000) {
-  const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (tab?.status === "complete" && tabMatchesUsername(tab, username)) return;
-
-  await new Promise((resolve, reject) => {
-    let settled = false;
-    const timeoutId = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("主页加载超时，请稍后重试。"));
-    }, timeoutMs);
-
-    function cleanup() {
-      settled = true;
-      window.clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(handleUpdated);
-      chrome.tabs.onRemoved.removeListener(handleRemoved);
-    }
-
-    async function handleUpdated(updatedTabId, changeInfo) {
-      if (settled || updatedTabId !== tabId) return;
-      if (changeInfo.status !== "complete" && !changeInfo.url) return;
-
-      const currentTab = await chrome.tabs.get(tabId).catch(() => null);
-      if (currentTab?.status === "complete" && tabMatchesUsername(currentTab, username)) {
-        cleanup();
-        resolve();
-      }
-    }
-
-    function handleRemoved(removedTabId) {
-      if (removedTabId === tabId) {
-        cleanup();
-        reject(new Error("检查标签页已关闭，低频检查已停止。"));
-      }
-    }
-
-    chrome.tabs.onUpdated.addListener(handleUpdated);
-    chrome.tabs.onRemoved.addListener(handleRemoved);
-  });
-}
-
-async function openProfileForBatch(account) {
-  const url = account.profileUrl || `https://x.com/${account.username}`;
-
-  if (state.batch.tabId) {
-    const existingTab = await chrome.tabs.get(state.batch.tabId).catch(() => null);
-    if (existingTab) {
-      await chrome.tabs.update(state.batch.tabId, { url, active: true });
-      return state.batch.tabId;
-    }
+async function sendBatchCommand(payload, pendingMessage = currentText.preparingBatch) {
+  if (pendingMessage) {
+    renderBatchPanel(pendingMessage);
   }
 
-  const tab = await chrome.tabs.create({ url, active: true });
-  state.batch.tabId = tab.id;
-  return tab.id;
-}
-
-async function injectProfileParser(tabId, expectedUsername = "") {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["src/content/profileActivityParser.js"]
-  });
-
-  const [injectionResult] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: (username) => {
-      return window.XFollowCleanerProfileParser?.scanProfileActivity?.(username) || {
-        ok: false,
-        code: "parser_missing",
-        message: "主页读取脚本未能加载，请刷新页面后再试。"
-      };
-    },
-    args: [expectedUsername]
-  });
-
-  return injectionResult?.result;
-}
-
-function isProfileLoadingResult(result) {
-  return result?.code === "profile_loading";
-}
-
-async function readStableProfileActivity(tabId, username, timeoutMs = 18000) {
-  const startedAt = Date.now();
-  let lastResult = null;
-
-  while (Date.now() - startedAt <= timeoutMs) {
-    if (state.batch.stopRequested) {
-      throw new Error(currentText.paused);
-    }
-
-    const result = await injectProfileParser(tabId, username);
-    if (!isProfileLoadingResult(result)) {
-      return result;
-    }
-
-    lastResult = result;
-    await sleep(1500);
+  const response = await chrome.runtime.sendMessage(payload);
+  if (!response?.ok) {
+    throw new Error(response?.message || "Unknown error");
   }
 
-  return {
-    ok: true,
-    code: "unknown",
-    username,
-    lastPostAt: "",
-    inactiveDays: null,
-    message: lastResult?.message || currentText.noEvidence
-  };
-}
-
-async function saveProfileResult(account, result) {
-  const checkedAt = new Date().toISOString();
-  const username = account.username;
-  const patch = buildProfileActivityPatch(account, result, state.settings, checkedAt);
-
-  await updateAccount(username, patch);
-  return patch;
-}
-
-function shouldStopForSafety(result) {
-  return result?.code === "verification" || result?.code === "rate_limited";
-}
-
-async function runAccountChecks(accounts, options = {}) {
-  if (state.batch.running) return;
-
-  state.batch.running = true;
-  state.batch.stopRequested = false;
-  state.batch.message = "";
-  renderBatchPanel(options.preparingMessage || currentText.preparingBatch);
-
-  try {
-    await loadAccounts();
-
-    if (options.requireBatchEnabled && !state.settings.enableExperimentalBatchCheck) {
-      renderBatchPanel(currentText.batchNotEnabled);
-      return;
-    }
-
-    const usage = await getBatchUsage();
-    const remainingToday = Math.max(0, Number(state.settings.experimentalDailyLimit || 100) - usage.checkedCount);
-    if (remainingToday <= 0) {
-      renderBatchPanel(currentText.dailyLimit);
-      return;
-    }
-
-    const batchSize = Math.min(Number(options.limit || state.settings.experimentalBatchSize || 20), 20, remainingToday);
-    const candidates = accounts.slice(0, batchSize);
-    if (candidates.length === 0) {
-      renderBatchPanel(currentText.noCandidates);
-      return;
-    }
-
-    for (let index = 0; index < candidates.length; index += 1) {
-      if (state.batch.stopRequested) {
-        renderBatchPanel(currentText.paused);
-        return;
-      }
-
-      const account = candidates[index];
-      renderBatchPanel(formatMessage(options.progressTemplate || currentText.checkingAccount, {
-        index: index + 1,
-        total: candidates.length,
-        username: account.username
-      }));
-
-      const tabId = await openProfileForBatch(account);
-      await waitForTabComplete(tabId, account.username);
-      await sleep(2500);
-
-      const result = await readStableProfileActivity(tabId, account.username);
-      await saveProfileResult(account, result);
-      await incrementBatchUsage(1);
-      await loadAccounts();
-
-      if (shouldStopForSafety(result)) {
-        renderBatchPanel(formatMessage(currentText.safetyStopped, {
-          reason: result.code === "verification" ? currentText.verification : currentText.rateLimited
-        }));
-        return;
-      }
-
-      if (options.useDelay !== false && index < candidates.length - 1) {
-        const delaySeconds = randomDelaySeconds(
-          state.settings.experimentalMinDelaySeconds,
-          state.settings.experimentalMaxDelaySeconds
-        );
-        for (let remaining = delaySeconds; remaining > 0; remaining -= 1) {
-          if (state.batch.stopRequested) {
-            renderBatchPanel(currentText.paused);
-            return;
-          }
-          renderBatchPanel(formatMessage(currentText.checkedWaiting, { username: account.username, seconds: remaining }));
-          await sleep(1000);
-        }
-      }
-    }
-
-    renderBatchPanel(formatMessage(options.doneTemplate || currentText.batchDone, { count: candidates.length }));
-  } catch (error) {
-    renderBatchPanel(formatMessage(currentText.batchStopped, { message: error.message }));
-  } finally {
-    state.batch.running = false;
-    state.batch.stopRequested = false;
-    await loadAccounts();
-  }
+  state.batch = response.batchState || await getBatchState();
+  renderAccounts();
+  return state.batch;
 }
 
 async function runBatchCheck() {
-  await loadAccounts();
-  await runAccountChecks(getBatchCandidates(), {
-    requireBatchEnabled: true,
-    limit: state.settings.experimentalBatchSize,
-    preparingMessage: currentText.preparingBatch,
-    progressTemplate: currentText.checkingAccount,
-    doneTemplate: currentText.batchDone
+  await sendBatchCommand({
+    type: "xFollowCleaner.batch.start",
+    mode: BatchMode.PENDING
   });
 }
 
 async function runInactiveRecheck() {
-  await loadAccounts();
-  await runAccountChecks(getInactiveReviewCandidates(), {
-    requireBatchEnabled: true,
-    limit: state.settings.experimentalBatchSize,
-    preparingMessage: currentText.preparingBatch,
-    progressTemplate: currentText.recheckingAccount,
-    doneTemplate: currentText.recheckDone
+  await sendBatchCommand({
+    type: "xFollowCleaner.batch.start",
+    mode: BatchMode.INACTIVE_RECHECK
   });
 }
 
 async function runUnknownRecheck() {
-  await loadAccounts();
-  await runAccountChecks(getUnknownCandidates(), {
-    requireBatchEnabled: true,
-    limit: state.settings.experimentalBatchSize,
-    preparingMessage: currentText.preparingBatch,
-    progressTemplate: currentText.recheckingAccount,
-    doneTemplate: currentText.recheckDone
+  await sendBatchCommand({
+    type: "xFollowCleaner.batch.start",
+    mode: BatchMode.UNKNOWN_RECHECK
   });
 }
 
 async function runSingleRecheck(account) {
-  await runAccountChecks([getEffectiveAccount(account, state.settings)], {
-    requireBatchEnabled: false,
-    limit: 1,
-    preparingMessage: formatMessage(currentText.recheckingAccount, { index: 1, total: 1, username: account.username }),
-    progressTemplate: currentText.recheckingAccount,
-    doneTemplate: currentText.recheckDone,
-    useDelay: false
-  });
+  await sendBatchCommand(
+    {
+      type: "xFollowCleaner.batch.start",
+      mode: BatchMode.SINGLE,
+      username: account.username
+    },
+    formatMessage(currentText.recheckingAccount, { index: 1, total: 1, username: account.username })
+  );
 }
 
-function pauseBatchCheck() {
-  state.batch.stopRequested = true;
-  renderBatchPanel(currentText.pausing);
+async function pauseBatchCheck() {
+  await sendBatchCommand({
+    type: "xFollowCleaner.batch.pause"
+  }, currentText.pausing);
+}
+
+function runBatchAction(action) {
+  action().catch((error) => {
+    renderBatchPanel(formatMessage(currentText.batchStopped, { message: error.message }));
+  });
 }
 
 async function handleRowAction(event) {
@@ -652,14 +434,30 @@ elements.searchInput.addEventListener("input", (event) => {
 elements.refreshResults.addEventListener("click", loadAccounts);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.exportJson.addEventListener("click", exportJson);
-elements.startBatchCheck.addEventListener("click", runBatchCheck);
-elements.recheckInactive.addEventListener("click", runInactiveRecheck);
-elements.recheckUnknown.addEventListener("click", runUnknownRecheck);
-elements.pauseBatchCheck.addEventListener("click", pauseBatchCheck);
+elements.startBatchCheck.addEventListener("click", () => runBatchAction(runBatchCheck));
+elements.recheckInactive.addEventListener("click", () => runBatchAction(runInactiveRecheck));
+elements.recheckUnknown.addEventListener("click", () => runBatchAction(runUnknownRecheck));
+elements.pauseBatchCheck.addEventListener("click", () => runBatchAction(pauseBatchCheck));
 elements.accountList.addEventListener("click", handleRowAction);
 
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => setActiveFilter(button.dataset.filter));
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+
+  const shouldReload = [
+    STORAGE_KEYS.ACCOUNTS,
+    STORAGE_KEYS.SETTINGS,
+    STORAGE_KEYS.BATCH_STATE
+  ].some((key) => Object.prototype.hasOwnProperty.call(changes, key));
+
+  if (shouldReload) {
+    loadAccounts().catch((error) => {
+      elements.accountList.textContent = formatMessage(currentText.loadFailed, { message: error.message });
+    });
+  }
 });
 
 loadAccounts().catch((error) => {

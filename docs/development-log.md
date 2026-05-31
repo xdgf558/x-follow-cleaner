@@ -1,5 +1,48 @@
 # Development Log
 
+## 修复记录：低频自动检查后台队列
+
+完成时间：2026-05-31
+
+阶段目标：修复低频自动检查切到 X 主页后，结果页在后台标签中可能被 Chrome 降速导致批次看起来卡住的问题。
+
+完成内容：
+1. 将低频自动检查的批次状态新增为 `chrome.storage.local` 中的持久队列。
+2. 将批次调度从结果页 `window.setTimeout` 循环迁移到后台 service worker。
+3. 新增 `alarms` 权限，用 `chrome.alarms` 安排账户间的低频等待。
+4. 结果页改为发送开始、暂停命令，并监听账户、设置、批次状态变化刷新 UI。
+5. 后台检查主页时会等待目标标签页加载完成，再注入主页读取脚本。
+6. README、known-issues 和 test-checklist 已更新。
+7. 版本号更新到 `0.4.0`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/development-log.md`
+5. `docs/known-issues.md`
+6. `docs/stage-plan.md`
+7. `docs/test-checklist.md`
+8. `src/background/serviceWorker.js`
+9. `src/results/results.js`
+10. `src/shared/constants.js`
+11. `src/shared/i18n.js`
+12. `src/shared/storage.js`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+
+未完成内容：
+1. 真实 Chrome 中停留在 X 检查标签页时的端到端批次推进需要人工验证。
+
+发现问题：
+1. Chrome 退出、电脑休眠、扩展重载或检查标签页关闭仍可能导致检查延后或停止，因此 README 保留了这些限制说明。
+
+下一阶段注意事项：
+1. 继续保持低频、可见、可暂停，不要改成后台静默高速检查。
+
+是否允许进入下一阶段：是
+
 ## 修复记录：结果页语言切换异常
 
 完成时间：2026-05-31

@@ -1,5 +1,6 @@
 import {
   AccountStatus,
+  DEFAULT_BATCH_STATE,
   DEFAULT_SETTINGS,
   DEFAULT_TASK_STATE,
   STORAGE_KEYS
@@ -181,6 +182,31 @@ export async function incrementBatchUsage(count = 1) {
   };
   await storageSet({ [STORAGE_KEYS.BATCH_USAGE]: nextUsage });
   return nextUsage;
+}
+
+export async function getBatchState() {
+  const result = await storageGet(STORAGE_KEYS.BATCH_STATE);
+  return {
+    ...DEFAULT_BATCH_STATE,
+    ...(result[STORAGE_KEYS.BATCH_STATE] || {})
+  };
+}
+
+export async function saveBatchState(batchState) {
+  const safeBatchState = {
+    ...DEFAULT_BATCH_STATE,
+    ...(batchState || {}),
+    updatedAt: new Date().toISOString()
+  };
+  await storageSet({ [STORAGE_KEYS.BATCH_STATE]: safeBatchState });
+  return safeBatchState;
+}
+
+export async function clearBatchState(message = "") {
+  return saveBatchState({
+    ...DEFAULT_BATCH_STATE,
+    message
+  });
 }
 
 export async function getTaskState() {

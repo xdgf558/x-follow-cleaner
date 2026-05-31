@@ -2,7 +2,8 @@ export const STORAGE_KEYS = {
   ACCOUNTS: "xFollowCleaner.accounts",
   SETTINGS: "xFollowCleaner.settings",
   TASK_STATE: "xFollowCleaner.taskState",
-  BATCH_USAGE: "xFollowCleaner.batchUsage"
+  BATCH_USAGE: "xFollowCleaner.batchUsage",
+  BATCH_STATE: "xFollowCleaner.batchState"
 };
 
 export const AccountStatus = {
@@ -14,6 +15,37 @@ export const AccountStatus = {
   ERROR: "error",
   PROCESSED: "processed",
   WHITELISTED: "whitelisted"
+};
+
+export const BatchStatus = {
+  IDLE: "idle",
+  RUNNING: "running",
+  PAUSED: "paused",
+  COMPLETED: "completed",
+  ERROR: "error"
+};
+
+export const BatchMode = {
+  PENDING: "pending",
+  INACTIVE_RECHECK: "inactiveRecheck",
+  UNKNOWN_RECHECK: "unknownRecheck",
+  SINGLE: "single"
+};
+
+export const DEFAULT_BATCH_STATE = {
+  status: BatchStatus.IDLE,
+  mode: "",
+  queue: [],
+  currentIndex: 0,
+  checkedCount: 0,
+  tabId: null,
+  currentUsername: "",
+  nextRunAt: "",
+  startedAt: "",
+  updatedAt: "",
+  completedAt: "",
+  message: "",
+  errorMessage: ""
 };
 
 export const DEFAULT_SETTINGS = {
