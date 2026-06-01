@@ -1,5 +1,5 @@
 (function initializeProfileActivityParser() {
-  const PARSER_VERSION = "0.5.1";
+  const PARSER_VERSION = "0.6.0";
   if (window.XFollowCleanerProfileParser?.version === PARSER_VERSION) return;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const MutualFollowStatus = {
@@ -196,21 +196,36 @@
   }
 
   function parseRelativeTime(text, now = new Date()) {
-    const cleanText = cleanTimeText(text).toLowerCase();
-    const match = cleanText.match(/^(\d+)\s*(s|m|h|d|sec|secs|min|mins|hr|hrs|hour|hours|day|days)$/);
+    const cleanText = cleanTimeText(text)
+      .toLowerCase()
+      .replace(/\s+ago$/, "")
+      .replace(/前$/, "")
+      .trim();
+    const match = cleanText.match(/^(\d+)\s*(s|m|h|d|w|mo|y|sec|secs|min|mins|hr|hrs|hour|hours|day|days|wk|wks|week|weeks|mon|mons|month|months|yr|yrs|year|years|秒|秒钟|秒鐘|分|分钟|分鐘|小时|小時|时|時|天|日|周|週|星期|个月|個月|年)$/);
     if (!match) return null;
 
     const value = Number(match[1]);
     if (!Number.isFinite(value)) return null;
 
     const unit = match[2];
-    if (unit.startsWith("s")) return new Date(now.getTime() - value * 1000);
-    if (unit.startsWith("m")) return new Date(now.getTime() - value * 60 * 1000);
-    if (unit === "h" || unit.startsWith("hr") || unit.startsWith("hour")) {
+    if (unit.startsWith("s") || unit.startsWith("秒")) return new Date(now.getTime() - value * 1000);
+    if (unit === "m" || unit.startsWith("min") || unit === "分" || unit === "分钟" || unit === "分鐘") {
+      return new Date(now.getTime() - value * 60 * 1000);
+    }
+    if (unit === "h" || unit.startsWith("hr") || unit.startsWith("hour") || unit === "小时" || unit === "小時" || unit === "时" || unit === "時") {
       return new Date(now.getTime() - value * 60 * 60 * 1000);
     }
-    if (unit === "d" || unit.startsWith("day")) {
+    if (unit === "d" || unit.startsWith("day") || unit === "天" || unit === "日") {
       return new Date(now.getTime() - value * DAY_MS);
+    }
+    if (unit === "w" || unit.startsWith("wk") || unit.startsWith("week") || unit === "周" || unit === "週" || unit === "星期") {
+      return new Date(now.getTime() - value * 7 * DAY_MS);
+    }
+    if (unit === "mo" || unit.startsWith("mon") || unit.startsWith("month") || unit === "个月" || unit === "個月") {
+      return new Date(now.getTime() - value * 30 * DAY_MS);
+    }
+    if (unit === "y" || unit.startsWith("yr") || unit.startsWith("year") || unit === "年") {
+      return new Date(now.getTime() - value * 365 * DAY_MS);
     }
 
     return null;
@@ -219,21 +234,48 @@
   function parseAbsoluteXDate(text, now = new Date()) {
     const cleanText = cleanTimeText(text);
     const match = cleanText.match(/^([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?$/);
-    if (!match) return null;
+    if (match) {
+      const month = MONTHS[match[1].toLowerCase()];
+      const day = Number(match[2]);
+      const explicitYear = match[3] ? Number(match[3]) : null;
+      if (month === undefined || !Number.isFinite(day) || day < 1 || day > 31) return null;
 
-    const month = MONTHS[match[1].toLowerCase()];
-    const day = Number(match[2]);
-    const explicitYear = match[3] ? Number(match[3]) : null;
-    if (month === undefined || !Number.isFinite(day) || day < 1 || day > 31) return null;
+      let year = explicitYear || now.getFullYear();
+      let date = new Date(year, month, day, 12, 0, 0, 0);
+      if (!explicitYear && date.getTime() > now.getTime() + DAY_MS) {
+        year -= 1;
+        date = new Date(year, month, day, 12, 0, 0, 0);
+      }
 
-    let year = explicitYear || now.getFullYear();
-    let date = new Date(year, month, day, 12, 0, 0, 0);
-    if (!explicitYear && date.getTime() > now.getTime() + DAY_MS) {
-      year -= 1;
-      date = new Date(year, month, day, 12, 0, 0, 0);
+      return date;
     }
 
-    return date;
+    const monthYearMatch = cleanText.match(/^([A-Za-z]+)\s+(\d{4})$/);
+    if (monthYearMatch) {
+      const month = MONTHS[monthYearMatch[1].toLowerCase()];
+      const year = Number(monthYearMatch[2]);
+      if (month === undefined || !Number.isFinite(year)) return null;
+      return new Date(year, month, 1, 12, 0, 0, 0);
+    }
+
+    const localizedMatch = cleanText.match(/^(?:(\d{4})\s*年\s*)?(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|号|號)?$/);
+    if (localizedMatch) {
+      const explicitYear = localizedMatch[1] ? Number(localizedMatch[1]) : null;
+      const month = Number(localizedMatch[2]) - 1;
+      const day = Number(localizedMatch[3]);
+      if (month < 0 || month > 11 || day < 1 || day > 31) return null;
+
+      let year = explicitYear || now.getFullYear();
+      let date = new Date(year, month, day, 12, 0, 0, 0);
+      if (!explicitYear && date.getTime() > now.getTime() + DAY_MS) {
+        year -= 1;
+        date = new Date(year, month, day, 12, 0, 0, 0);
+      }
+
+      return date;
+    }
+
+    return null;
   }
 
   function parseXTimeText(text, now = new Date()) {
@@ -294,10 +336,32 @@
     );
   }
 
+  function hasPinnedContext(element) {
+    let current = element;
+    for (let depth = 0; depth < 6 && current; depth += 1) {
+      const text = textOf(current).toLowerCase();
+      if (
+        text.startsWith("pinned") ||
+        text.startsWith("置顶") ||
+        text.includes("pinned post") ||
+        text.includes("已置顶")
+      ) {
+        return true;
+      }
+      current = current.parentElement;
+    }
+
+    return false;
+  }
+
+  function isVisibleElement(element) {
+    const rect = element?.getBoundingClientRect?.();
+    return Boolean(rect && rect.width > 0 && rect.height > 0);
+  }
+
   function getVisibleTweetArticles() {
     return Array.from(document.querySelectorAll('article[data-testid="tweet"]')).filter((article) => {
-      const rect = article.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
+      return isVisibleElement(article);
     });
   }
 
@@ -412,22 +476,34 @@
     const candidates = [];
     const now = new Date();
 
+    function addCandidateFromTimeElement(timeElement) {
+      const statusLink = timeElement.closest("a[href]");
+      const statusLinkInfo = getStatusLinkInfo(statusLink?.getAttribute("href"));
+      if (!statusLinkInfo || statusLinkInfo.username !== normalizedUsername) return;
+      if (!isVisibleElement(timeElement) || hasPinnedContext(timeElement)) return;
+
+      const parsedDate = parseTimeElement(timeElement, now);
+      if (!parsedDate) return;
+
+      candidates.push({
+        lastPostAt: parsedDate.toISOString(),
+        sourceText: timeElement.textContent || timeElement.getAttribute("datetime") || "",
+        statusUrl: statusLinkInfo.url
+      });
+    }
+
     for (const article of articles) {
       if (isPinnedArticle(article)) continue;
 
       for (const timeElement of Array.from(article.querySelectorAll("time"))) {
-        const statusLink = timeElement.closest("a[href]");
-        const statusLinkInfo = getStatusLinkInfo(statusLink?.getAttribute("href"));
-        if (!statusLinkInfo || statusLinkInfo.username !== normalizedUsername) continue;
+        addCandidateFromTimeElement(timeElement);
+      }
+    }
 
-        const parsedDate = parseTimeElement(timeElement, now);
-        if (!parsedDate) continue;
-
-        candidates.push({
-          lastPostAt: parsedDate.toISOString(),
-          sourceText: timeElement.textContent || timeElement.getAttribute("datetime") || "",
-          statusUrl: statusLinkInfo.url
-        });
+    if (candidates.length === 0) {
+      const root = document.querySelector("main") || document;
+      for (const timeElement of Array.from(root.querySelectorAll("a[href*='/status/'] time, time"))) {
+        addCandidateFromTimeElement(timeElement);
       }
     }
 

@@ -47,6 +47,18 @@ const bannedPermissions = [
   "management"
 ];
 
+const allowedPermissions = [
+  "storage",
+  "alarms",
+  "tabs",
+  "scripting"
+];
+
+const allowedHostPermissions = [
+  "https://x.com/*",
+  "https://twitter.com/*"
+];
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -77,6 +89,17 @@ const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
 const permissions = manifest.permissions || [];
 const foundBannedPermissions = bannedPermissions.filter((permission) => permissions.includes(permission));
 assert(foundBannedPermissions.length === 0, `Banned permissions found: ${foundBannedPermissions.join(", ")}`);
+
+const unexpectedPermissions = permissions.filter((permission) => !allowedPermissions.includes(permission));
+assert(unexpectedPermissions.length === 0, `Unexpected permissions found: ${unexpectedPermissions.join(", ")}`);
+
+const hostPermissions = manifest.host_permissions || [];
+const unexpectedHostPermissions = hostPermissions.filter((permission) => !allowedHostPermissions.includes(permission));
+assert(unexpectedHostPermissions.length === 0, `Unexpected host permissions found: ${unexpectedHostPermissions.join(", ")}`);
+
+const extensionCsp = manifest.content_security_policy?.extension_pages || "";
+assert(!extensionCsp.includes("'unsafe-eval'"), "CSP must not allow unsafe-eval.");
+assert(!/https?:\/\//i.test(extensionCsp), "CSP must not load remote script/style origins.");
 
 for (const file of listJsFiles(join(root, "src"))) {
   const result = spawnSync(process.execPath, ["--check", file], {

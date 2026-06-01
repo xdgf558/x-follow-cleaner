@@ -88,10 +88,11 @@ git pull
 本项目不需要构建步骤。生成可分发 zip：
 
 ```sh
+npm run check
 npm run package
 ```
 
-打包文件会生成到 `dist/x-follow-cleaner-vX.Y.Z.zip`。zip 根目录包含 `manifest.json` 和 `LICENSE`，可以用于 Chrome 开发者模式安装，也可以作为个人网站下载包。
+`npm run check` 会检查必需文件、权限白名单、host 权限、CSP、JS 语法和核心单元测试。打包文件会生成到 `dist/x-follow-cleaner-vX.Y.Z.zip`。zip 根目录包含 `manifest.json` 和 `LICENSE`，可以用于 Chrome 开发者模式安装，也可以作为个人网站下载包。
 
 ## 开发者模式安装截图占位说明
 
@@ -205,6 +206,8 @@ npm run package
 这个功能只做本地辅助判断。X 页面语言、页面加载、账号保护、异常页面或 DOM 变化都可能影响结果；“疑似取关”建议再手动打开主页确认一次。
 
 从 `v0.5.1` 起，如果主页头部已经加载但帖子时间线还没加载完成，插件会继续等待最近发帖时间，不会只保存互关状态就结束本次检查。
+
+从 `v0.6.0` 起，插件增加了更多 DOM fallback 和时间格式支持。如果 X 改掉常见 `data-testid`，插件会尝试从可见主页链接和状态帖时间链接中兜底读取；时间解析也补充了周、月、年、`Mar 2025`、`5月30日`、`2025年5月30日` 等格式。
 
 ## 数据导出
 

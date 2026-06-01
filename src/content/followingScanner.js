@@ -227,9 +227,22 @@
     const userCells = Array.from(document.querySelectorAll('[data-testid="UserCell"]'));
     if (userCells.length > 0) return userCells;
 
-    return Array.from(document.querySelectorAll('[data-testid="cellInnerDiv"]')).filter((element) => {
+    const cellInnerDivs = Array.from(document.querySelectorAll('[data-testid="cellInnerDiv"]')).filter((element) => {
       return Boolean(findProfileLink(element));
     });
+    if (cellInnerDivs.length > 0) return cellInnerDivs;
+
+    const root = document.querySelector("main") || document;
+    const byUsername = new Map();
+    for (const anchor of Array.from(root.querySelectorAll("a[href]"))) {
+      const profile = getProfileUrlFromAnchor(anchor);
+      if (!profile || byUsername.has(profile.username)) continue;
+
+      const container = anchor.closest('[role="listitem"], [data-testid="cellInnerDiv"]') || anchor.parentElement || anchor;
+      byUsername.set(profile.username, container);
+    }
+
+    return Array.from(byUsername.values());
   }
 
   function dedupeAccounts(accounts) {

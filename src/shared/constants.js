@@ -45,6 +45,8 @@ export const DEFAULT_BATCH_STATE = {
   currentIndex: 0,
   checkedCount: 0,
   tabId: null,
+  isProcessing: false,
+  processingStartedAt: "",
   currentUsername: "",
   nextRunAt: "",
   startedAt: "",

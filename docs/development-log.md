@@ -1,5 +1,51 @@
 # Development Log
 
+## 审查改进记录：解析兜底、批处理防重入和测试
+
+完成时间：2026-06-01
+
+阶段目标：根据代码审查结果降低 DOM/时间解析和批处理状态风险，并补充自动化测试。
+
+完成内容：
+1. Following 扫描在 `UserCell` 和 `cellInnerDiv` 都不可用时，会从 `main` 中的可见 profile 链接兜底提取账户。
+2. 主页最近发帖时间读取在 `article[data-testid="tweet"]` 不可用时，会从可见状态帖时间链接兜底提取时间。
+3. 时间解析新增周、月、年、英文 month-year、中文 `月日` 和 `年月日` 格式。
+4. 批处理状态新增 `isProcessing` 和 `processingStartedAt`，避免 alarm 重入导致重复检查；超过 2 分钟视为陈旧锁可恢复。
+5. `npm run check` 新增权限白名单、host 权限、CSP 检查，并串联 `npm test`。
+6. 新增 `tests/dateUtils.test.mjs` 和 `tests/statusUtils.test.mjs`，覆盖时间解析和疑似取关状态逻辑。
+7. README 已同步新的检查、打包和解析兜底说明。
+8. 版本号更新到 `0.6.0`。
+
+修改文件：
+1. `manifest.json`
+2. `package.json`
+3. `README.md`
+4. `docs/development-log.md`
+5. `docs/test-checklist.md`
+6. `src/background/serviceWorker.js`
+7. `src/content/followingScanner.js`
+8. `src/content/profileActivityParser.js`
+9. `src/shared/constants.js`
+10. `src/shared/dateUtils.js`
+11. `tests/dateUtils.test.mjs`
+12. `tests/statusUtils.test.mjs`
+13. `tools/check-extension.mjs`
+
+已验证功能：
+1. `npm run check` 已运行并通过。
+
+未完成内容：
+1. X 真实 DOM 仍可能变化，兜底策略不能替代真实页面回归。
+2. 公共工具函数去重属于较大结构重构，本轮先不做，避免影响内容脚本注入方式。
+
+发现问题：
+1. DOM 解析无法完全稳定，必须继续保持 unknown 保守策略和可追溯依据展示。
+
+下一阶段注意事项：
+1. 若继续抽公共工具，需要先设计内容脚本可安全加载的非 ESM shared runtime。
+
+是否允许进入下一阶段：是
+
 ## 修复记录：互关读取导致发帖时间线抢跑
 
 完成时间：2026-05-31

@@ -16,6 +16,7 @@ import { buildProfileActivityPatch, getEffectiveAccount } from "../shared/status
 
 const BATCH_ALARM_NAME = "xFollowCleaner.batch.next";
 const MIN_INTER_ACCOUNT_DELAY_MS = 15 * 1000;
+const PROCESSING_STALE_MS = 2 * 60 * 1000;
 
 function normalizeUsername(username) {
   return String(username || "").replace(/^@/, "").trim().toLowerCase();
@@ -29,6 +30,12 @@ function randomDelaySeconds(min, max) {
   const safeMin = Math.max(15, Number(min || 15));
   const safeMax = Math.max(safeMin, Number(max || 30));
   return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
+}
+
+function isProcessingFresh(batchState) {
+  if (!batchState?.isProcessing) return false;
+  const startedAt = Date.parse(batchState.processingStartedAt || "");
+  return Number.isFinite(startedAt) && Date.now() - startedAt < PROCESSING_STALE_MS;
 }
 
 function tabMatchesUsername(tab, username) {
@@ -279,6 +286,8 @@ async function startBatch(mode = BatchMode.PENDING, username = "") {
     currentIndex: 0,
     checkedCount: 0,
     tabId: currentState.tabId || null,
+    isProcessing: false,
+    processingStartedAt: "",
     currentUsername: "",
     nextRunAt: new Date(Date.now() + 1000).toISOString(),
     startedAt: now,
@@ -297,6 +306,8 @@ async function pauseBatch() {
   return saveBatchState({
     ...currentState,
     status: BatchStatus.PAUSED,
+    isProcessing: false,
+    processingStartedAt: "",
     nextRunAt: "",
     message: getText(await getSettings()).paused
   });
@@ -307,6 +318,8 @@ async function finishBatch(batchState, status, message, errorMessage = "") {
   return saveBatchState({
     ...batchState,
     status,
+    isProcessing: false,
+    processingStartedAt: "",
     nextRunAt: "",
     completedAt: new Date().toISOString(),
     message,
@@ -325,6 +338,8 @@ async function advanceBatchAfterDelay(batchState, settings, text, account) {
     ...batchState,
     currentIndex: batchState.currentIndex + 1,
     checkedCount: batchState.checkedCount + 1,
+    isProcessing: false,
+    processingStartedAt: "",
     currentUsername: "",
     nextRunAt,
     message: formatMessage(text.checkedWaiting, {
@@ -340,6 +355,7 @@ async function advanceBatchAfterDelay(batchState, settings, text, account) {
 async function processNextBatchAccount() {
   let batchState = await getBatchState();
   if (batchState.status !== BatchStatus.RUNNING) return batchState;
+  if (isProcessingFresh(batchState)) return batchState;
 
   const settings = await getSettings();
   const text = getText(settings);
@@ -365,6 +381,8 @@ async function processNextBatchAccount() {
 
   batchState = await saveBatchState({
     ...batchState,
+    isProcessing: true,
+    processingStartedAt: new Date().toISOString(),
     currentUsername: username,
     message: formatMessage(getProgressTemplate(batchState.mode, text), {
       index: batchState.currentIndex + 1,
@@ -405,6 +423,8 @@ async function processNextBatchAccount() {
           ...batchState,
           currentIndex: nextIndex,
           checkedCount: nextCheckedCount,
+          isProcessing: false,
+          processingStartedAt: "",
           currentUsername: ""
         },
         BatchStatus.COMPLETED,
@@ -414,8 +434,13 @@ async function processNextBatchAccount() {
 
     return advanceBatchAfterDelay(batchState, settings, text, account);
   } catch (error) {
+    const latestState = await getBatchState();
+    if (latestState.status !== BatchStatus.RUNNING) {
+      return latestState;
+    }
+
     return finishBatch(
-      batchState,
+      latestState,
       BatchStatus.ERROR,
       formatMessage(text.batchStopped, { message: error.message }),
       error.message
